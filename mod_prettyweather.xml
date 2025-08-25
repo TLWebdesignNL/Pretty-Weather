@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" client="site" method="upgrade">
+    <name>MOD_PRETTYWEATHER</name>
+    <creationDate>2025-08-25</creationDate>
+    <author>Tom van der Laan</author>
+    <authorEmail>info@tlwebdesign.nl</authorEmail>
+    <authorUrl>https://tlwebdesign.nl</authorUrl>
+    <copyright>TLWebdesign</copyright>
+    <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+    <version>1.0.0</version>
+    <description>MOD_PRETTYWEATHER_XML_DESCRIPTION</description>
+    <scriptfile>script.php</scriptfile>
+    <namespace path="src">TLWeb\Module\Prettyweather</namespace>
+    <files>
+        <folder module="mod_prettyweather">services</folder>
+        <folder>src</folder>
+        <folder>tmpl</folder>
+        <folder>language</folder>
+    </files>
+    <media folder="media" destination="mod_prettyweather">
+        <filename>logo.svg</filename>
+    </media>
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field
+                        name="logo"
+                        type="note"
+                        description="MOD_PRETTYWEATHER_FIELD_LOGO_DESC"
+                />
+                <field
+                        name="ownerinfo"
+                        type="note"
+                        description="MOD_PRETTYWEATHER_FIELD_OWNERINFO_DESC"
+                />
+                <field
+                        name="info"
+                        type="note"
+                        description="MOD_PRETTYWEATHER_FIELD_INFO_DESC"
+                />
+            </fieldset>
+            <fieldset name="content">
+                <field
+                        name="contentinfo"
+                        type="note"
+                        label="MOD_PRETTYWEATHER_FIELD_CONTENTINFO_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_CONTENTINFO_DESC"
+                    />
+                <field
+                        name="content"
+                        type="editor"
+                        label="MOD_PRETTYWEATHER_FIELD_CONTENT_LABEL"
+                        filter="\Joomla\CMS\Component\ComponentHelper::filterText"
+                        buttons="false"
+                />
+            </fieldset>
+            <fieldset name="settings" label="MOD_PRETTYWEATHER_FIELDSET_SETTINGS_LABEL">
+                <field
+                        name="provider"
+                        required="true"
+                        type="list"
+                        label="MOD_PRETTYWEATHER_FIELD_CID_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_CID_DESC"
+                        default=""
+                >
+                    <option value="openweathermap">MOD_PRETTYWEATHER_PROVIDER_OPENWEATHERMAP</option>
+                </field>
+                <field
+                        name="apikey"
+                        required="true"
+                        type="text"
+                        label="MOD_PRETTYWEATHER_FIELD_APIKEY_LABEL"
+                        default=""
+                />
+                <field
+                        name="units"
+                        type="list"
+                        label="MOD_PRETTYWEATHER_UNITS_LABEL"
+                        description="MOD_PRETTYWEATHER_UNITS_DESC"
+                        default="metric"
+                        required="true"
+                >
+                    <option value="standard">MOD_PRETTYWEATHER_UNITS_STANDARD</option>
+                    <option value="metric">MOD_PRETTYWEATHER_UNITS_METRIC</option>
+                    <option value="imperial">MOD_PRETTYWEATHER_UNITS_IMPERIAL</option>
+                </field>
+                <field
+                        name="latitude"
+                        type="text"
+                        label="MOD_PRETTYWEATHER_FIELD_LAT_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_LAT_DESC"
+                />
+                <field
+                        name="longitude"
+                        type="text"
+                        label="MOD_PRETTYWEATHER_FIELD_LON_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_LON_DESC"
+                />
+                <field
+                        name="pausetime"
+                        type="number"
+                        default="10"
+                        label="MOD_PRETTYWEATHER_FIELD_PAUSETIME_LABEL"
+                />
+                <field
+                        name="conditional_content"
+                        type="subform"
+                        label="MOD_PRETTYWEATHER_CONDITIONAL_CONTENT_LABEL"
+                        description="MOD_PRETTYWEATHER_CONDITIONAL_CONTENT_DESC"
+                        multiple="true"
+                        layout="joomla.form.field.subform.repeatable-table"
+                >
+                    <form>
+                        <fields name="params">
+                            <fieldset name="conditional_content_item">
+                                <field
+                                        name="content"
+                                        type="editor"
+                                        label="MOD_PRETTYWEATHER_CONDITION_CONTENT_LABEL"
+                                        filter="\Joomla\CMS\Component\ComponentHelper::filterText"
+                                        buttons="false"
+                                />
+
+                                <field
+                                        name="rules"
+                                        type="subform"
+                                        label="MOD_PRETTYWEATHER_CONDITION_RULES_LABEL"
+                                        description="MOD_PRETTYWEATHER_CONDITION_RULES_DESC"
+                                        multiple="true"
+                                        layout="joomla.form.field.subform.repeatable-table"
+                                >
+                                    <form>
+                                        <fields name="params">
+                                            <fieldset name="rule">
+                                                <field
+                                                        name="type"
+                                                        type="list"
+                                                        label="MOD_PRETTYWEATHER_CONDITION_TYPE_LABEL"
+                                                        required="true"
+                                                >
+                                                    <option value="temp">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP</option>
+                                                    <option value="feels_like">MOD_PRETTYWEATHER_CONDITION_TYPE_FEELS_LIKE</option>
+                                                    <option value="temp_min">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP_MIN</option>
+                                                    <option value="temp_max">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP_MAX</option>
+                                                </field>
+                                                <field
+                                                        name="operator"
+                                                        type="list"
+                                                        label="MOD_PRETTYWEATHER_CONDITION_OPERATOR_LABEL"
+                                                        required="true"
+                                                >
+                                                    <option value=">">MOD_PRETTYWEATHER_CONDITION_OPERATOR_GT</option>
+                                                    <option value=">=">MOD_PRETTYWEATHER_CONDITION_OPERATOR_GTE</option>
+                                                    <option value="<">MOD_PRETTYWEATHER_CONDITION_OPERATOR_LT</option>
+                                                    <option value="<=">MOD_PRETTYWEATHER_CONDITION_OPERATOR_LTE</option>
+                                                    <option value="=">MOD_PRETTYWEATHER_CONDITION_OPERATOR_EQ</option>
+                                                    <option value="!=">MOD_PRETTYWEATHER_CONDITION_OPERATOR_NEQ</option>
+                                                </field>
+                                                <field
+                                                        name="value"
+                                                        type="number"
+                                                        label="MOD_PRETTYWEATHER_CONDITION_VALUE_LABEL"
+                                                        step="any"
+                                                        required="true"
+                                                />
+                                            </fieldset>
+                                        </fields>
+                                    </form>
+                                </field>
+                            </fieldset>
+                        </fields>
+                    </form>
+                </field>
+            </fieldset>
+            <fieldset name="advanced">
+                <field
+                        name="layout"
+                        type="modulelayout"
+                        label="JFIELD_ALT_LAYOUT_LABEL"
+                        class="form-select"
+                        validate="moduleLayout"
+                />
+
+                <field
+                        name="moduleclass_sfx"
+                        type="textarea"
+                        label="COM_MODULES_FIELD_MODULECLASS_SFX_LABEL"
+                        rows="3"
+                        validate="CssIdentifier"
+                />
+
+                <field
+                        name="cache"
+                        type="list"
+                        label="COM_MODULES_FIELD_CACHING_LABEL"
+                        default="1"
+                        filter="integer"
+                        validate="options"
+                >
+                    <option value="1">JGLOBAL_USE_GLOBAL</option>
+                    <option value="0">COM_MODULES_FIELD_VALUE_NOCACHING</option>
+                </field>
+                <field
+                        name="cache_time"
+                        type="number"
+                        label="COM_MODULES_FIELD_CACHE_TIME_LABEL"
+                        default="900"
+                        filter="integer"
+                />
+                <field
+                        name="cachemode"
+                        type="hidden"
+                        default="static"
+                >
+                    <option value="static"></option>
+                </field>
+            </fieldset>
+
+        </fields>
+    </config>
+    <updateservers>
+        <server type="extension" priority="2" name="Pretty Weather Updates">
+            https://raw.githubusercontent.com/TLWebdesignNL/Pretty-Weather/main/updates.xml
+        </server>
+    </updateservers>
+    <changelogurl>https://raw.githubusercontent.com/TLWebdesignNL/Pretty-Weather/main/changelog.xml</changelogurl>
+</extension>
