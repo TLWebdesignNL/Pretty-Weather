@@ -43,24 +43,91 @@
                 <field
                         name="contentinfo"
                         type="note"
+                        class="alert alert-info w-100"
                         label="MOD_PRETTYWEATHER_FIELD_CONTENTINFO_LABEL"
                         description="MOD_PRETTYWEATHER_FIELD_CONTENTINFO_DESC"
-                    />
+                />
                 <field
                         name="content"
                         type="editor"
                         label="MOD_PRETTYWEATHER_FIELD_CONTENT_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_CONTENT_DESC"
                         filter="\Joomla\CMS\Component\ComponentHelper::filterText"
                         buttons="false"
                 />
+                <field
+                        name="conditional_content"
+                        type="subform"
+                        label="MOD_PRETTYWEATHER_CONDITIONAL_CONTENT_LABEL"
+                        description="MOD_PRETTYWEATHER_CONDITIONAL_CONTENT_DESC"
+                        multiple="true"
+                        layout="joomla.form.field.subform.repeatable-table"
+                >
+                    <form>
+                        <fieldset name="conditional_content_item">
+                            <field
+                                    name="content"
+                                    type="editor"
+                                    label="MOD_PRETTYWEATHER_CONDITION_CONTENT_LABEL"
+                                    filter="\Joomla\CMS\Component\ComponentHelper::filterText"
+                                    buttons="false"
+                            />
+
+                            <field
+                                    name="rules"
+                                    type="subform"
+                                    label="MOD_PRETTYWEATHER_CONDITION_RULES_LABEL"
+                                    description="MOD_PRETTYWEATHER_CONDITION_RULES_DESC"
+                                    multiple="true"
+                                    layout="joomla.form.field.subform.repeatable-table"
+                            >
+                                <form>
+                                    <fieldset name="rule">
+                                        <field
+                                                name="type"
+                                                type="list"
+                                                label="MOD_PRETTYWEATHER_CONDITION_TYPE_LABEL"
+                                                required="true"
+                                        >
+                                            <option value="temp">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP</option>
+                                            <option value="feels_like">MOD_PRETTYWEATHER_CONDITION_TYPE_FEELS_LIKE</option>
+                                            <option value="temp_min">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP_MIN</option>
+                                            <option value="temp_max">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP_MAX</option>
+                                        </field>
+                                        <field
+                                                name="operator"
+                                                type="list"
+                                                label="MOD_PRETTYWEATHER_CONDITION_OPERATOR_LABEL"
+                                                required="true"
+                                        >
+                                            <option value="gt">MOD_PRETTYWEATHER_CONDITION_OPERATOR_GT</option>
+                                            <option value="gtr">MOD_PRETTYWEATHER_CONDITION_OPERATOR_GTE</option>
+                                            <option value="lt">MOD_PRETTYWEATHER_CONDITION_OPERATOR_LT</option>
+                                            <option value="ltr">MOD_PRETTYWEATHER_CONDITION_OPERATOR_LTE</option>
+                                            <option value="eq">MOD_PRETTYWEATHER_CONDITION_OPERATOR_EQ</option>
+                                            <option value="neq">MOD_PRETTYWEATHER_CONDITION_OPERATOR_NEQ</option>
+                                        </field>
+                                        <field
+                                                name="value"
+                                                type="number"
+                                                label="MOD_PRETTYWEATHER_CONDITION_VALUE_LABEL"
+                                                step="any"
+                                                required="true"
+                                        />
+                                    </fieldset>
+                                </form>
+                            </field>
+                        </fieldset>
+                    </form>
+                </field>
             </fieldset>
             <fieldset name="settings" label="MOD_PRETTYWEATHER_FIELDSET_SETTINGS_LABEL">
                 <field
                         name="provider"
                         required="true"
                         type="list"
-                        label="MOD_PRETTYWEATHER_FIELD_CID_LABEL"
-                        description="MOD_PRETTYWEATHER_FIELD_CID_DESC"
+                        label="MOD_PRETTYWEATHER_FIELD_PROVIDER_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_PROVIDER_DESC"
                         default=""
                 >
                     <option value="openweathermap">MOD_PRETTYWEATHER_PROVIDER_OPENWEATHERMAP</option>
@@ -101,75 +168,18 @@
                         type="number"
                         default="10"
                         label="MOD_PRETTYWEATHER_FIELD_PAUSETIME_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_PAUSETIME_DESC"
                 />
                 <field
-                        name="conditional_content"
-                        type="subform"
-                        label="MOD_PRETTYWEATHER_CONDITIONAL_CONTENT_LABEL"
-                        description="MOD_PRETTYWEATHER_CONDITIONAL_CONTENT_DESC"
-                        multiple="true"
-                        layout="joomla.form.field.subform.repeatable-table"
+                        name="debug"
+                        type="radio"
+                        label="MOD_PRETTYWEATHER_DEBUG_LABEL"
+                        description="MOD_PRETTYWEATHER_DEBUG_DESC"
+                        default="0"
+                        layout="joomla.form.field.radio.switcher"
                 >
-                    <form>
-                        <fields name="params">
-                            <fieldset name="conditional_content_item">
-                                <field
-                                        name="content"
-                                        type="editor"
-                                        label="MOD_PRETTYWEATHER_CONDITION_CONTENT_LABEL"
-                                        filter="\Joomla\CMS\Component\ComponentHelper::filterText"
-                                        buttons="false"
-                                />
-
-                                <field
-                                        name="rules"
-                                        type="subform"
-                                        label="MOD_PRETTYWEATHER_CONDITION_RULES_LABEL"
-                                        description="MOD_PRETTYWEATHER_CONDITION_RULES_DESC"
-                                        multiple="true"
-                                        layout="joomla.form.field.subform.repeatable-table"
-                                >
-                                    <form>
-                                        <fields name="params">
-                                            <fieldset name="rule">
-                                                <field
-                                                        name="type"
-                                                        type="list"
-                                                        label="MOD_PRETTYWEATHER_CONDITION_TYPE_LABEL"
-                                                        required="true"
-                                                >
-                                                    <option value="temp">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP</option>
-                                                    <option value="feels_like">MOD_PRETTYWEATHER_CONDITION_TYPE_FEELS_LIKE</option>
-                                                    <option value="temp_min">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP_MIN</option>
-                                                    <option value="temp_max">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP_MAX</option>
-                                                </field>
-                                                <field
-                                                        name="operator"
-                                                        type="list"
-                                                        label="MOD_PRETTYWEATHER_CONDITION_OPERATOR_LABEL"
-                                                        required="true"
-                                                >
-                                                    <option value=">">MOD_PRETTYWEATHER_CONDITION_OPERATOR_GT</option>
-                                                    <option value=">=">MOD_PRETTYWEATHER_CONDITION_OPERATOR_GTE</option>
-                                                    <option value="<">MOD_PRETTYWEATHER_CONDITION_OPERATOR_LT</option>
-                                                    <option value="<=">MOD_PRETTYWEATHER_CONDITION_OPERATOR_LTE</option>
-                                                    <option value="=">MOD_PRETTYWEATHER_CONDITION_OPERATOR_EQ</option>
-                                                    <option value="!=">MOD_PRETTYWEATHER_CONDITION_OPERATOR_NEQ</option>
-                                                </field>
-                                                <field
-                                                        name="value"
-                                                        type="number"
-                                                        label="MOD_PRETTYWEATHER_CONDITION_VALUE_LABEL"
-                                                        step="any"
-                                                        required="true"
-                                                />
-                                            </fieldset>
-                                        </fields>
-                                    </form>
-                                </field>
-                            </fieldset>
-                        </fields>
-                    </form>
+                    <option value="0">JNO</option>
+                    <option value="1">JYES</option>
                 </field>
             </fieldset>
             <fieldset name="advanced">

@@ -35,10 +35,9 @@ class Dispatcher extends AbstractModuleDispatcher implements HelperFactoryAwareI
     protected function getLayoutData(): array
     {
         $data = parent::getLayoutData();
-		echo "<pre>";
-		var_dump($data);die();
-	    $data['newData'] = $this->getHelperFactory()->getHelper('PrettyweatherHelper')->updateWeather($data);
-	    $data['display'] = $this->getHelperFactory()->getHelper('PrettyweatherHelper')->displayContent($data);
+
+	    $data['weatherData'] = $this->getHelperFactory()->getHelper('PrettyweatherHelper')->getWeather($data['module']);
+	    $data['display'] = $this->getHelperFactory()->getHelper('PrettyweatherHelper')->displayContent($data['module'], $data['weatherData']);
 
 		return $data;
     }

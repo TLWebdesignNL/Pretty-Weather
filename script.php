@@ -26,7 +26,7 @@ class mod_prettyweatherInstallerScript
      */
     public function __construct()
     {
-        $this->minimumJoomla = '4.0';
+        $this->minimumJoomla = '5.2';
         $this->minimumPhp    = JOOMLA_MINIMUM_PHP;
     }
 
