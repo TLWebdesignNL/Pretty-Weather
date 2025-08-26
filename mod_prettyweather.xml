@@ -171,7 +171,7 @@
                         type="text"
                         label="MOD_PRETTYWEATHER_FIELD_LON_LABEL"
                         description="MOD_PRETTYWEATHER_FIELD_LON_DESC"
-                        hint="16.0001 (dot notation)"
+                        hint="MOD_PRETTYWEATHER_FIELD_LON_HINT"
                 />
                 <field
                         name="pausetime"
