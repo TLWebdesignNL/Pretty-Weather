@@ -7,4 +7,17 @@
             <item>First release of Pretty Weather.</item>
         </addition>
     </changelog>
+    <changelog>
+        <element>mod_prettyweather</element>
+        <type>module</type>
+        <version>1.0.1</version>
+        <addition>
+            <item>Added debug options.</item>
+            <item>Added extra information in backend regarding OpenWeatherMap API and Debug options</item>
+        </addition>
+        <fix>
+            <item>Fixed error when API did not return data.</item>
+            <item>Improved error handling from API response</item>
+        </fix>
+    </changelog>
 </changelogs>

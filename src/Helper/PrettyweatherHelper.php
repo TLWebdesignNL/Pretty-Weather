@@ -13,10 +13,9 @@ namespace TLWeb\Module\Prettyweather\Site\Helper;
 use Joomla\CMS\Factory;
 use Joomla\Filesystem\File;
 use Joomla\Filesystem\Folder;
-use Joomla\CMS\Helper\ModuleHelper;
-use Exception;
 use Joomla\CMS\Uri\Uri;
 use Joomla\CMS\Http\HttpFactory;
+use Joomla\CMS\Language\Text;
 
 
 \defined('_JEXEC') or die;
@@ -115,7 +114,7 @@ class PrettyweatherHelper
 			return json_decode($jsonContents, true);
 		}
 
-		return null;
+		return false;
 	}
 
 	/**
@@ -184,8 +183,28 @@ class PrettyweatherHelper
 			$http = HttpFactory::getHttp(['timeout' => 5]);
 			$response = $http->get((string) $uri);
 
-			if ((int) ($response->code ?? 0) !== 200) {
-				return false;
+			$code  = (int) ($response->code ?? 0);
+			if ($code !== 200) {
+			    $debug = !empty($params->debug);
+			    if ($debug) {
+			        $app = Factory::getApplication();
+			        switch ($code) {
+			            case 401:
+			                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_401'), 'warning');
+			                break;
+			            case 404:
+			                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_404'), 'info');
+			                break;
+			            case 429:
+			                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_429'), 'warning');
+			                break;
+			            default:
+			                $app->enqueueMessage(Text::sprintf('MOD_PRETTYWEATHER_ERROR_HTTP', $code), 'warning');
+			                break;
+			        }
+			    }
+
+			    return false;
 			}
 
 			$data = json_decode($response->body ?? '', true);
@@ -208,9 +227,15 @@ class PrettyweatherHelper
 
 			return $data;
 		} catch (\Throwable $e) {
+			$debug = !empty($params->debug ?? null);
+			if ($debug) {
+			    $app = Factory::getApplication();
+			    $app->enqueueMessage(Text::sprintf('MOD_PRETTYWEATHER_ERROR_EXCEPTION', $e->getMessage()), 'error');
+			}
 			return false;
 		}
 	}
+
 	/**
 	 * Build the rendered HTML from default content and conditional content rules.
 	 *

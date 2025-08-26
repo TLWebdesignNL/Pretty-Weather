@@ -7,7 +7,7 @@
     <authorUrl>https://tlwebdesign.nl</authorUrl>
     <copyright>TLWebdesign</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <description>MOD_PRETTYWEATHER_XML_DESCRIPTION</description>
     <scriptfile>script.php</scriptfile>
     <namespace path="src">TLWeb\Module\Prettyweather</namespace>
@@ -58,8 +58,8 @@
                 <field
                         name="conditional_content"
                         type="subform"
-                        label="MOD_PRETTYWEATHER_CONDITIONAL_CONTENT_LABEL"
-                        description="MOD_PRETTYWEATHER_CONDITIONAL_CONTENT_DESC"
+                        label="MOD_PRETTYWEATHER_FIELD_CONDITIONAL_CONTENT_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_CONDITIONAL_CONTENT_DESC"
                         multiple="true"
                         layout="joomla.form.field.subform.repeatable-table"
                 >
@@ -68,7 +68,7 @@
                             <field
                                     name="content"
                                     type="editor"
-                                    label="MOD_PRETTYWEATHER_CONDITION_CONTENT_LABEL"
+                                    label="MOD_PRETTYWEATHER_FIELD_CONDITION_CONTENT_LABEL"
                                     filter="\Joomla\CMS\Component\ComponentHelper::filterText"
                                     buttons="false"
                             />
@@ -76,8 +76,8 @@
                             <field
                                     name="rules"
                                     type="subform"
-                                    label="MOD_PRETTYWEATHER_CONDITION_RULES_LABEL"
-                                    description="MOD_PRETTYWEATHER_CONDITION_RULES_DESC"
+                                    label="MOD_PRETTYWEATHER_FIELD_CONDITION_RULES_LABEL"
+                                    description="MOD_PRETTYWEATHER_FIELD_CONDITION_RULES_DESC"
                                     multiple="true"
                                     layout="joomla.form.field.subform.repeatable-table"
                             >
@@ -86,31 +86,31 @@
                                         <field
                                                 name="type"
                                                 type="list"
-                                                label="MOD_PRETTYWEATHER_CONDITION_TYPE_LABEL"
+                                                label="MOD_PRETTYWEATHER_FIELD_CONDITION_TYPE_LABEL"
                                                 required="true"
                                         >
-                                            <option value="temp">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP</option>
-                                            <option value="feels_like">MOD_PRETTYWEATHER_CONDITION_TYPE_FEELS_LIKE</option>
-                                            <option value="temp_min">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP_MIN</option>
-                                            <option value="temp_max">MOD_PRETTYWEATHER_CONDITION_TYPE_TEMP_MAX</option>
+                                            <option value="temp">MOD_PRETTYWEATHER_FIELD_CONDITION_TYPE_TEMP</option>
+                                            <option value="feels_like">MOD_PRETTYWEATHER_FIELD_CONDITION_TYPE_FEELS_LIKE</option>
+                                            <option value="temp_min">MOD_PRETTYWEATHER_FIELD_CONDITION_TYPE_TEMP_MIN</option>
+                                            <option value="temp_max">MOD_PRETTYWEATHER_FIELD_CONDITION_TYPE_TEMP_MAX</option>
                                         </field>
                                         <field
                                                 name="operator"
                                                 type="list"
-                                                label="MOD_PRETTYWEATHER_CONDITION_OPERATOR_LABEL"
+                                                label="MOD_PRETTYWEATHER_FIELD_CONDITION_OPERATOR_LABEL"
                                                 required="true"
                                         >
-                                            <option value="gt">MOD_PRETTYWEATHER_CONDITION_OPERATOR_GT</option>
-                                            <option value="gtr">MOD_PRETTYWEATHER_CONDITION_OPERATOR_GTE</option>
-                                            <option value="lt">MOD_PRETTYWEATHER_CONDITION_OPERATOR_LT</option>
-                                            <option value="ltr">MOD_PRETTYWEATHER_CONDITION_OPERATOR_LTE</option>
-                                            <option value="eq">MOD_PRETTYWEATHER_CONDITION_OPERATOR_EQ</option>
-                                            <option value="neq">MOD_PRETTYWEATHER_CONDITION_OPERATOR_NEQ</option>
+                                            <option value="gt">MOD_PRETTYWEATHER_FIELD_CONDITION_OPERATOR_GT</option>
+                                            <option value="gtr">MOD_PRETTYWEATHER_FIELD_CONDITION_OPERATOR_GTE</option>
+                                            <option value="lt">MOD_PRETTYWEATHER_FIELD_CONDITION_OPERATOR_LT</option>
+                                            <option value="ltr">MOD_PRETTYWEATHER_FIELD_CONDITION_OPERATOR_LTE</option>
+                                            <option value="eq">MOD_PRETTYWEATHER_FIELD_CONDITION_OPERATOR_EQ</option>
+                                            <option value="neq">MOD_PRETTYWEATHER_FIELD_CONDITION_OPERATOR_NEQ</option>
                                         </field>
                                         <field
                                                 name="value"
                                                 type="number"
-                                                label="MOD_PRETTYWEATHER_CONDITION_VALUE_LABEL"
+                                                label="MOD_PRETTYWEATHER_FIELD_CONDITION_VALUE_LABEL"
                                                 step="any"
                                                 required="true"
                                         />
@@ -123,14 +123,22 @@
             </fieldset>
             <fieldset name="settings" label="MOD_PRETTYWEATHER_FIELDSET_SETTINGS_LABEL">
                 <field
+                        name="openweathermapinfo"
+                        type="note"
+                        class="alert alert-info w-100"
+                        label="MOD_PRETTYWEATHER_FIELD_OPENWEATHERMAPINFO_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_OPENWEATHERMAPINFO_DESC"
+                        showon="provider:openweathermap"
+                />
+                <field
                         name="provider"
                         required="true"
                         type="list"
                         label="MOD_PRETTYWEATHER_FIELD_PROVIDER_LABEL"
                         description="MOD_PRETTYWEATHER_FIELD_PROVIDER_DESC"
-                        default=""
+                        default="openweathermap"
                 >
-                    <option value="openweathermap">MOD_PRETTYWEATHER_PROVIDER_OPENWEATHERMAP</option>
+                    <option value="openweathermap">MOD_PRETTYWEATHER_FIELD_PROVIDER_OPENWEATHERMAP</option>
                 </field>
                 <field
                         name="apikey"
@@ -142,26 +150,28 @@
                 <field
                         name="units"
                         type="list"
-                        label="MOD_PRETTYWEATHER_UNITS_LABEL"
-                        description="MOD_PRETTYWEATHER_UNITS_DESC"
+                        label="MOD_PRETTYWEATHER_FIELD_UNITS_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_UNITS_DESC"
                         default="metric"
                         required="true"
                 >
-                    <option value="standard">MOD_PRETTYWEATHER_UNITS_STANDARD</option>
-                    <option value="metric">MOD_PRETTYWEATHER_UNITS_METRIC</option>
-                    <option value="imperial">MOD_PRETTYWEATHER_UNITS_IMPERIAL</option>
+                    <option value="standard">MOD_PRETTYWEATHER_FIELD_UNITS_STANDARD</option>
+                    <option value="metric">MOD_PRETTYWEATHER_FIELD_UNITS_METRIC</option>
+                    <option value="imperial">MOD_PRETTYWEATHER_FIELD_UNITS_IMPERIAL</option>
                 </field>
                 <field
                         name="latitude"
                         type="text"
                         label="MOD_PRETTYWEATHER_FIELD_LAT_LABEL"
                         description="MOD_PRETTYWEATHER_FIELD_LAT_DESC"
+                        hint="MOD_PRETTYWEATHER_FIELD_LAT_HINT"
                 />
                 <field
                         name="longitude"
                         type="text"
                         label="MOD_PRETTYWEATHER_FIELD_LON_LABEL"
                         description="MOD_PRETTYWEATHER_FIELD_LON_DESC"
+                        hint="16.0001 (dot notation)"
                 />
                 <field
                         name="pausetime"
@@ -171,10 +181,17 @@
                         description="MOD_PRETTYWEATHER_FIELD_PAUSETIME_DESC"
                 />
                 <field
+                        name="debuginfo"
+                        type="note"
+                        class="alert alert-info w-100"
+                        label="MOD_PRETTYWEATHER_FIELD_DEBUGINFO_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_DEBUGINFO_DESC"
+                />
+                <field
                         name="debug"
                         type="radio"
-                        label="MOD_PRETTYWEATHER_DEBUG_LABEL"
-                        description="MOD_PRETTYWEATHER_DEBUG_DESC"
+                        label="MOD_PRETTYWEATHER_FIELD_DEBUG_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_DEBUG_DESC"
                         default="0"
                         layout="joomla.form.field.radio.switcher"
                 >
