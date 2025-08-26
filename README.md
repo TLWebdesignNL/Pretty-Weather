@@ -1,2 +1,2 @@
 # Pretty Weather
-Pretty Weather Module for Joomla 4 & Joomla 5
+Pretty Weather Module for Joomla 5.2
