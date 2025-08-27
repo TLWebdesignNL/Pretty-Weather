@@ -103,11 +103,11 @@ class PrettyweatherHelper
 	 * Read and decode a JSON file.
 	 *
 	 * @param  string $jsonFilePath Absolute file path.
-	 * @return array|null           Decoded array, or null if file not found/invalid.
+	 * @return array|bool           Decoded array, or bool if file not found/invalid.
 	 *
 	 * @since 1.0.0
 	 */
-	public function getJsonFile($jsonFilePath): ?array
+	public function getJsonFile($jsonFilePath): array|bool
 	{
 		if (is_file($jsonFilePath)) {
 			$jsonContents = file_get_contents($jsonFilePath);
