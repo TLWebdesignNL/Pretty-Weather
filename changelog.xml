@@ -20,4 +20,12 @@
             <item>Improved error handling from API response</item>
         </fix>
     </changelog>
+    <changelog>
+        <element>mod_prettyweather</element>
+        <type>module</type>
+        <version>1.0.2</version>
+        <fix>
+            <item>Various bugfixes and improvements in the Helper Class.</item>
+        </fix>
+    </changelog>
 </changelogs>
