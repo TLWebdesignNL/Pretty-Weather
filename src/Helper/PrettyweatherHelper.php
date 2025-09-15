@@ -42,13 +42,13 @@ class PrettyweatherHelper
 	 */
 	public function getWeather($module): array|bool
 	{
+        if (!is_object($module)) {
+            throw new \RuntimeException('Invalid module reference', 404);
+        }
+
+        $params = json_decode($module->params) ?: new \stdClass();
 
 
-		$params = json_decode($module->params);
-
-		// Check if the module is 'mod_prettyweather'
-		if ($module && $module->name === 'prettyweather')
-		{
 			// Decode module params
 
 			// Extract required parameters
@@ -60,9 +60,7 @@ class PrettyweatherHelper
 			{
 				throw new \InvalidArgumentException('No provider and/or API key set', 400);
 			}
-		} else {
-			throw new \RuntimeException('Module not found or invalid', 404);
-		}
+
 
 		// Get existing weather data from JSON file
 		$data = $this->getJsonFile(JPATH_ROOT . '/media/mod_prettyweather/data-' . $module->id . '.json');
@@ -84,7 +82,7 @@ class PrettyweatherHelper
 
 		if ($isStale || $coordsChanged)
 		{
-			// fetch weaterData if update is needed.
+            // fetch weatherData if update is needed.
 			$weatherData = $this->getWeatherData($provider, $apiKey, $params);
 
 			if ($weatherData)
@@ -96,25 +94,25 @@ class PrettyweatherHelper
 		}
 
 		// Save and return outcome (bool)
-		return $data;
+		return is_array($data) ? $data : false;
 	}
 
 	/**
 	 * Read and decode a JSON file.
 	 *
 	 * @param  string $jsonFilePath Absolute file path.
-	 * @return array|bool           Decoded array, or bool if file not found/invalid.
+	 * @return array|null           Decoded array, or null if file not found/invalid.
 	 *
 	 * @since 1.0.0
 	 */
-	public function getJsonFile($jsonFilePath): array|bool
+	public function getJsonFile(string $jsonFilePath): ?array
 	{
-		if (is_file($jsonFilePath)) {
-			$jsonContents = file_get_contents($jsonFilePath);
-			return json_decode($jsonContents, true);
+		if (!is_file($jsonFilePath)) {
+			return null; // file missing
 		}
 
-		return false;
+		$contents = json_decode(file_get_contents($jsonFilePath), true);
+		return is_array($contents) ? $contents : null;
 	}
 
 	/**
@@ -126,14 +124,14 @@ class PrettyweatherHelper
 	 *
 	 * @since 1.0.0
 	 */
-	public function saveJsonFile(array $data, $jsonFilePath): bool
+	public function saveJsonFile(array $data, string $jsonFilePath): bool
 	{
 		$dir = dirname($jsonFilePath);
 		if (!is_dir($dir)) {
 			Folder::create($dir);
 		}
 
-		$jsonContents = json_encode($data);
+		$jsonContents = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
 		// Save the JSON data to the file
 		return File::write($jsonFilePath, $jsonContents);
@@ -149,7 +147,7 @@ class PrettyweatherHelper
 	 *
 	 * @since 1.0.0
 	 */
-	public function getWeatherData($provider, $apiKey, $params)
+	public function getWeatherData($provider, $apiKey, $params): array|false
 	{
 		try {
 			// Extract required params
@@ -180,7 +178,7 @@ class PrettyweatherHelper
 			$uri->setQuery($query);
 
 			// Perform GET using Joomla HTTP client with a strict timeout (max 5s)
-			$http = HttpFactory::getHttp(['timeout' => 5]);
+			$http = HttpFactory::getHttp(['timeout' => 5, 'userAgent' => 'PrettyWeather/1.0']);
 			$response = $http->get((string) $uri);
 
 			$code  = (int) ($response->code ?? 0);
@@ -207,7 +205,13 @@ class PrettyweatherHelper
 			    return false;
 			}
 
-			$data = json_decode($response->body ?? '', true);
+            $body = $response->body ?? '';
+            if ($body === '') {
+                return false;
+            }
+
+            $data = json_decode($body, true);
+
 			if (!is_array($data)) {
 				return false;
 			}
@@ -241,18 +245,18 @@ class PrettyweatherHelper
 	 *
 	 * @param  \stdClass $module Joomla module instance.
 	 * @param  array     $data   Decoded weather data (as stored/returned by getWeatherData()).
-	 * @return string|false      Concatenated HTML string on success, or false when nothing matches.
+	 * @return ?string         Concatenated HTML string on success, or null when nothing matches.
 	 *
 	 * @since 1.0.0
 	 */
-	public function displayContent($module, $data)
+	public function displayContent($module, $data): ?string
 	{
 		if (empty($data) || !is_array($data)) {
-			return false;
+			return null;
 		}
 
-		if (!$module || $module->name !== 'prettyweather') {
-			return false;
+		if (!is_object($module)) {
+			return null;
 		}
 
 		$params = json_decode($module->params) ?: new \stdClass();
@@ -269,7 +273,6 @@ class PrettyweatherHelper
 		{
 			foreach ($blocks as $block)
 			{
-//				var_dump($block);
 				$content = isset($block->content) ? (string) $block->content : '';
 				$rules   = [];
 				if (isset($block->rules))
@@ -291,7 +294,7 @@ class PrettyweatherHelper
 			}
 		}
 		if (!$out) {
-			return false;
+			return null;
 		}
 
 		return implode("\n", $out);
@@ -326,7 +329,7 @@ class PrettyweatherHelper
 				return false;
 			}
 
-			$currentTypeValue = isset($main[$type]) ? (int) $main[$type] : null;
+			$currentTypeValue = isset($main[$type]) ? (float) $main[$type] : null;
 			if ($currentTypeValue === null) {
 				return false;
 			}
