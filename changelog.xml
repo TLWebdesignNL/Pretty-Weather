@@ -28,4 +28,14 @@
             <item>Various bugfixes and improvements in the Helper Class.</item>
         </fix>
     </changelog>
+    <changelog>
+        <element>mod_prettyweather</element>
+        <type>module</type>
+        <version>1.0.3</version>
+        <addition>
+            <item>Added Open-Meteo as an alternative weather provider (keyless and free, with genuine daily min/max temperatures).</item>
+            <item>Added an optional Location name field to fill the {name} placeholder (overrides the provider name; required to show a name with Open-Meteo).</item>
+            <item>Added a backend note explaining that OpenWeatherMap's min/max temperatures are usually equal to the current temperature for a single location.</item>
+        </addition>
+    </changelog>
 </changelogs>

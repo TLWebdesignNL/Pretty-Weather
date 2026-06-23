@@ -7,7 +7,7 @@
     <authorUrl>https://tlwebdesign.nl</authorUrl>
     <copyright>TLWebdesign</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
     <description>MOD_PRETTYWEATHER_XML_DESCRIPTION</description>
     <scriptfile>script.php</scriptfile>
     <namespace path="src">TLWeb\Module\Prettyweather</namespace>
@@ -131,6 +131,22 @@
                         showon="provider:openweathermap"
                 />
                 <field
+                        name="apibehaviorinfo"
+                        type="note"
+                        class="alert alert-warning w-100"
+                        label="MOD_PRETTYWEATHER_FIELD_APIBEHAVIORINFO_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_APIBEHAVIORINFO_DESC"
+                        showon="provider:openweathermap"
+                />
+                <field
+                        name="openmeteoinfo"
+                        type="note"
+                        class="alert alert-info w-100"
+                        label="MOD_PRETTYWEATHER_FIELD_OPENMETEOINFO_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_OPENMETEOINFO_DESC"
+                        showon="provider:openmeteo"
+                />
+                <field
                         name="provider"
                         required="true"
                         type="list"
@@ -139,13 +155,14 @@
                         default="openweathermap"
                 >
                     <option value="openweathermap">MOD_PRETTYWEATHER_FIELD_PROVIDER_OPENWEATHERMAP</option>
+                    <option value="openmeteo">MOD_PRETTYWEATHER_FIELD_PROVIDER_OPENMETEO</option>
                 </field>
                 <field
                         name="apikey"
-                        required="true"
                         type="text"
                         label="MOD_PRETTYWEATHER_FIELD_APIKEY_LABEL"
                         default=""
+                        showon="provider:openweathermap"
                 />
                 <field
                         name="units"
@@ -172,6 +189,13 @@
                         label="MOD_PRETTYWEATHER_FIELD_LON_LABEL"
                         description="MOD_PRETTYWEATHER_FIELD_LON_DESC"
                         hint="MOD_PRETTYWEATHER_FIELD_LON_HINT"
+                />
+                <field
+                        name="locationname"
+                        type="text"
+                        label="MOD_PRETTYWEATHER_FIELD_LOCATIONNAME_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_LOCATIONNAME_DESC"
+                        default=""
                 />
                 <field
                         name="pausetime"

@@ -55,10 +55,17 @@ class PrettyweatherHelper
 			$provider = $params->provider ?? null;
 			$apiKey = $params->apikey ?? null;
 
-			// Validate parameters
-			if (empty($provider) || empty($apiKey))
+			// Validate parameters. A provider is always required; an API key is
+			// only required for providers that need one (e.g. OpenWeatherMap).
+			// Open-Meteo is keyless, so it must not be blocked by a missing key.
+			if (empty($provider))
 			{
-				throw new \InvalidArgumentException('No provider and/or API key set', 400);
+				throw new \InvalidArgumentException('No provider set', 400);
+			}
+
+			if (strtolower((string) $provider) === 'openweathermap' && empty($apiKey))
+			{
+				throw new \InvalidArgumentException('No API key set', 400);
 			}
 
 
@@ -138,98 +145,29 @@ class PrettyweatherHelper
 	}
 
 	/**
-	 * Fetch current weather from OpenWeatherMap.
+	 * Fetch current weather, routing to the configured provider.
 	 *
-	 * @param  string    $provider Provider key (only "openweathermap" is supported).
-	 * @param  string    $apiKey   API key.
+	 * Both providers normalise their response into the same canonical structure
+	 * (the OpenWeatherMap shape: main.temp/feels_like/temp_min/temp_max, name,
+	 * coord.lat/lon, dt) so all downstream code remains provider-agnostic.
+	 *
+	 * @param  string    $provider Provider key ("openweathermap" or "openmeteo").
+	 * @param  string    $apiKey   API key (only used by OpenWeatherMap).
 	 * @param  \stdClass $params   Module params (expects latitude, longitude, units).
-	 * @return array|false         Decoded weather array on success, false on failure/validation issues.
+	 * @return array|false         Canonical weather array on success, false on failure.
 	 *
 	 * @since 1.0.0
 	 */
 	public function getWeatherData($provider, $apiKey, $params): array|false
 	{
 		try {
-			// Extract required params
-			$lat   = isset($params->latitude) ? (float) $params->latitude : null;
-			$lon   = isset($params->longitude) ? (float) $params->longitude : null;
-			$units = !empty($params->units) ? (string) $params->units : 'metric';
+			$provider = strtolower((string) $provider);
 
-			if ($lat === null || $lon === null || empty($apiKey)) {
-				return false;
+			if ($provider === 'openmeteo') {
+				return $this->getOpenMeteoData($params);
 			}
 
-			// Only OpenWeatherMap supported for now
-			if (!empty($provider) && strtolower((string) $provider) !== 'openweathermap') {
-				return false;
-			}
-
-			// Build request URL
-			$base = 'https://api.openweathermap.org/data/2.5/weather';
-			$query = [
-				'lat'      => $lat,
-				'lon'      => $lon,
-				'exclude'  => '',
-				'appid'    => $apiKey,
-				'units'    => $units,
-			];
-
-			$uri = new Uri($base);
-			$uri->setQuery($query);
-
-			// Perform GET using Joomla HTTP client with a strict timeout (max 5s)
-			$http = HttpFactory::getHttp(['timeout' => 5, 'userAgent' => 'PrettyWeather/1.0']);
-			$response = $http->get((string) $uri);
-
-			$code  = (int) ($response->code ?? 0);
-			if ($code !== 200) {
-			    $debug = !empty($params->debug);
-			    if ($debug) {
-			        $app = Factory::getApplication();
-			        switch ($code) {
-			            case 401:
-			                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_401'), 'warning');
-			                break;
-			            case 404:
-			                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_404'), 'info');
-			                break;
-			            case 429:
-			                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_429'), 'warning');
-			                break;
-			            default:
-			                $app->enqueueMessage(Text::sprintf('MOD_PRETTYWEATHER_ERROR_HTTP', $code), 'warning');
-			                break;
-			        }
-			    }
-
-			    return false;
-			}
-
-            $body = $response->body ?? '';
-            if ($body === '') {
-                return false;
-            }
-
-            $data = json_decode($body, true);
-
-			if (!is_array($data)) {
-				return false;
-			}
-
-			// Validate essential fields
-			$hasRequired = isset($data['name'])
-				&& isset($data['main'])
-				&& is_array($data['main'])
-				&& array_key_exists('temp', $data['main'])
-				&& array_key_exists('feels_like', $data['main'])
-				&& array_key_exists('temp_min', $data['main'])
-				&& array_key_exists('temp_max', $data['main']);
-
-			if (!$hasRequired) {
-				return false;
-			}
-
-			return $data;
+			return $this->getOpenWeatherMapData($apiKey, $params);
 		} catch (\Throwable $e) {
 			$debug = !empty($params->debug ?? null);
 			if ($debug) {
@@ -238,6 +176,225 @@ class PrettyweatherHelper
 			}
 			return false;
 		}
+	}
+
+	/**
+	 * Fetch current weather from OpenWeatherMap and return it in canonical form.
+	 *
+	 * @param  string    $apiKey API key.
+	 * @param  \stdClass $params Module params (expects latitude, longitude, units).
+	 * @return array|false       Canonical weather array on success, false on failure/validation issues.
+	 *
+	 * @since 1.0.3
+	 */
+	protected function getOpenWeatherMapData($apiKey, $params): array|false
+	{
+		// Extract required params
+		$lat   = isset($params->latitude) ? (float) $params->latitude : null;
+		$lon   = isset($params->longitude) ? (float) $params->longitude : null;
+		$units = !empty($params->units) ? (string) $params->units : 'metric';
+
+		if ($lat === null || $lon === null || empty($apiKey)) {
+			return false;
+		}
+
+		// Build request URL
+		$base = 'https://api.openweathermap.org/data/2.5/weather';
+		$query = [
+			'lat'      => $lat,
+			'lon'      => $lon,
+			'exclude'  => '',
+			'appid'    => $apiKey,
+			'units'    => $units,
+		];
+
+		$uri = new Uri($base);
+		$uri->setQuery($query);
+
+		// Perform GET using Joomla HTTP client with a strict timeout (max 5s)
+		$http = HttpFactory::getHttp(['timeout' => 5, 'userAgent' => 'PrettyWeather/1.0']);
+		$response = $http->get((string) $uri);
+
+		$code  = (int) ($response->code ?? 0);
+		if ($code !== 200) {
+		    $debug = !empty($params->debug);
+		    if ($debug) {
+		        $app = Factory::getApplication();
+		        switch ($code) {
+		            case 401:
+		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_401'), 'warning');
+		                break;
+		            case 404:
+		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_404'), 'info');
+		                break;
+		            case 429:
+		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_429'), 'warning');
+		                break;
+		            default:
+		                $app->enqueueMessage(Text::sprintf('MOD_PRETTYWEATHER_ERROR_HTTP', $code), 'warning');
+		                break;
+		        }
+		    }
+
+		    return false;
+		}
+
+        $body = $response->body ?? '';
+        if ($body === '') {
+            return false;
+        }
+
+        $data = json_decode($body, true);
+
+		if (!is_array($data)) {
+			return false;
+		}
+
+		// Validate essential fields
+		$hasRequired = isset($data['name'])
+			&& isset($data['main'])
+			&& is_array($data['main'])
+			&& array_key_exists('temp', $data['main'])
+			&& array_key_exists('feels_like', $data['main'])
+			&& array_key_exists('temp_min', $data['main'])
+			&& array_key_exists('temp_max', $data['main']);
+
+		if (!$hasRequired) {
+			return false;
+		}
+
+		// Optional manual location name overrides the API-provided name.
+		if (!empty($params->locationname)) {
+			$data['name'] = (string) $params->locationname;
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Fetch current weather from Open-Meteo and normalise it into the canonical
+	 * OpenWeatherMap-shaped structure used throughout the module.
+	 *
+	 * Open-Meteo is keyless and only supports Celsius/Fahrenheit. The module's
+	 * "standard" (Kelvin) option is satisfied by fetching Celsius and converting
+	 * to Kelvin in code. Unlike OpenWeatherMap's current-weather endpoint, the
+	 * daily min/max returned here are genuine daily extremes.
+	 *
+	 * @param  \stdClass $params Module params (expects latitude, longitude, units).
+	 * @return array|false       Canonical weather array on success, false on failure/validation issues.
+	 *
+	 * @since 1.0.3
+	 */
+	protected function getOpenMeteoData($params): array|false
+	{
+		$lat = isset($params->latitude) ? (float) $params->latitude : null;
+		$lon = isset($params->longitude) ? (float) $params->longitude : null;
+
+		if ($lat === null || $lon === null) {
+			return false;
+		}
+
+		// Map the module's units to Open-Meteo's temperature_unit. Open-Meteo has
+		// no Kelvin; for "standard" we request Celsius and convert afterwards.
+		$units    = !empty($params->units) ? strtolower((string) $params->units) : 'metric';
+		$toKelvin = ($units === 'standard');
+		$tempUnit = ($units === 'imperial') ? 'fahrenheit' : 'celsius';
+
+		// Build request URL
+		$base  = 'https://api.open-meteo.com/v1/forecast';
+		$query = [
+			'latitude'         => $lat,
+			'longitude'        => $lon,
+			'current'          => 'temperature_2m,apparent_temperature',
+			'daily'            => 'temperature_2m_max,temperature_2m_min',
+			'temperature_unit' => $tempUnit,
+			'timezone'         => 'auto',
+			'forecast_days'    => 1,
+		];
+
+		$uri = new Uri($base);
+		$uri->setQuery($query);
+
+		// Perform GET using Joomla HTTP client with a strict timeout (max 5s)
+		$http = HttpFactory::getHttp(['timeout' => 5, 'userAgent' => 'PrettyWeather/1.0']);
+		$response = $http->get((string) $uri);
+
+		$code = (int) ($response->code ?? 0);
+		if ($code !== 200) {
+		    $debug = !empty($params->debug);
+		    if ($debug) {
+		        $app = Factory::getApplication();
+		        switch ($code) {
+		            case 429:
+		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_OPENMETEO_429'), 'warning');
+		                break;
+		            default:
+		                $app->enqueueMessage(Text::sprintf('MOD_PRETTYWEATHER_ERROR_OPENMETEO_HTTP', $code), 'warning');
+		                break;
+		        }
+		    }
+
+		    return false;
+		}
+
+		$body = $response->body ?? '';
+		if ($body === '') {
+			return false;
+		}
+
+		$data = json_decode($body, true);
+		if (!is_array($data)) {
+			return false;
+		}
+
+		// Validate essential fields from the Open-Meteo response.
+		$hasRequired = isset($data['current'])
+			&& is_array($data['current'])
+			&& array_key_exists('temperature_2m', $data['current'])
+			&& array_key_exists('apparent_temperature', $data['current'])
+			&& isset($data['daily'])
+			&& is_array($data['daily'])
+			&& isset($data['daily']['temperature_2m_max'][0])
+			&& isset($data['daily']['temperature_2m_min'][0]);
+
+		if (!$hasRequired) {
+			return false;
+		}
+
+		$temp     = (float) $data['current']['temperature_2m'];
+		$apparent = (float) $data['current']['apparent_temperature'];
+		$tempMax  = (float) $data['daily']['temperature_2m_max'][0];
+		$tempMin  = (float) $data['daily']['temperature_2m_min'][0];
+
+		if ($toKelvin) {
+			$temp     += 273.15;
+			$apparent += 273.15;
+			$tempMax  += 273.15;
+			$tempMin  += 273.15;
+		}
+
+		// Normalise into the canonical OpenWeatherMap-shaped structure.
+		$weather = [
+			'main'  => [
+				'temp'       => $temp,
+				'feels_like' => $apparent,
+				'temp_min'   => $tempMin,
+				'temp_max'   => $tempMax,
+			],
+			// Open-Meteo's forecast endpoint returns no location name; the optional
+			// manual name (below) is the only source for the {name} placeholder.
+			'name'  => '',
+			// Store the REQUESTED coordinates, not Open-Meteo's grid-snapped values,
+			// so getWeather()'s coord-change check (epsilon 1e-6) does not thrash the cache.
+			'coord' => ['lat' => $lat, 'lon' => $lon],
+			'dt'    => time(),
+		];
+
+		if (!empty($params->locationname)) {
+			$weather['name'] = (string) $params->locationname;
+		}
+
+		return $weather;
 	}
 
 	/**
