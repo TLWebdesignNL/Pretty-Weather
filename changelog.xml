@@ -39,4 +39,12 @@
             <item>Added a backend note explaining that OpenWeatherMap's min/max temperatures are usually equal to the current temperature for a single location.</item>
         </addition>
     </changelog>
+    <changelog>
+        <element>mod_prettyweather</element>
+        <type>module</type>
+        <version>1.1.1</version>
+        <addition>
+            <item>Documentation: expanded the README with the available providers and configuration details.</item>
+        </addition>
+    </changelog>
 </changelogs>
