@@ -189,7 +189,7 @@ class PrettyweatherHelper
 	 * @param  \stdClass $params Module params (expects latitude, longitude, units).
 	 * @return array|false       Canonical weather array on success, false on failure/validation issues.
 	 *
-	 * @since 1.0.3
+	 * @since 1.1.0
 	 */
 	protected function getOpenWeatherMapData($apiKey, $params): array|false
 	{
@@ -287,7 +287,7 @@ class PrettyweatherHelper
 	 * @param  \stdClass $params Module params (expects latitude, longitude, units).
 	 * @return array|false       Canonical weather array on success, false on failure/validation issues.
 	 *
-	 * @since 1.0.3
+	 * @since 1.1.0
 	 */
 	protected function getOpenMeteoData($params): array|false
 	{
@@ -417,7 +417,7 @@ class PrettyweatherHelper
 	 * @param  \stdClass $params Module params (expects latitude, longitude, units).
 	 * @return array|false       Canonical weather array on success, false on failure/validation issues.
 	 *
-	 * @since 1.0.3
+	 * @since 1.1.0
 	 */
 	protected function getOpenWeatherMapOneCallData($apiKey, $params): array|false
 	{
@@ -497,7 +497,7 @@ class PrettyweatherHelper
 	 * @param  mixed $records The decoded daily "data" array, or null.
 	 * @return array|null     The chosen daily record, or null when none are usable.
 	 *
-	 * @since 1.0.3
+	 * @since 1.1.0
 	 */
 	protected function selectTodaysDailyRecord($records): ?array
 	{
@@ -545,7 +545,7 @@ class PrettyweatherHelper
 	 * @param  \stdClass $params Module params (used for the debug flag).
 	 * @return array|null        Decoded response array, or null on error/invalid body.
 	 *
-	 * @since 1.0.3
+	 * @since 1.1.0
 	 */
 	protected function fetchOpenWeatherMapJson(string $url, $params): ?array
 	{

@@ -31,7 +31,7 @@
     <changelog>
         <element>mod_prettyweather</element>
         <type>module</type>
-        <version>1.0.3</version>
+        <version>1.1.0</version>
         <addition>
             <item>Added Open-Meteo as an alternative weather provider (keyless and free, with genuine daily min/max temperatures).</item>
             <item>Added OpenWeatherMap One Call API 4.0 as an alternative provider (genuine daily min/max; requires the billing-enabled "One Call by Call" subscription, first 1,000 calls/day free; uses two calls per refresh).</item>
