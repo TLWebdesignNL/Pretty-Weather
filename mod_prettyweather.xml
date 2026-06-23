@@ -147,6 +147,14 @@
                         showon="provider:openmeteo"
                 />
                 <field
+                        name="openweathermaponecallinfo"
+                        type="note"
+                        class="alert alert-info w-100"
+                        label="MOD_PRETTYWEATHER_FIELD_OPENWEATHERMAPONECALLINFO_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_OPENWEATHERMAPONECALLINFO_DESC"
+                        showon="provider:openweathermaponecall"
+                />
+                <field
                         name="provider"
                         required="true"
                         type="list"
@@ -155,6 +163,7 @@
                         default="openweathermap"
                 >
                     <option value="openweathermap">MOD_PRETTYWEATHER_FIELD_PROVIDER_OPENWEATHERMAP</option>
+                    <option value="openweathermaponecall">MOD_PRETTYWEATHER_FIELD_PROVIDER_OPENWEATHERMAPONECALL</option>
                     <option value="openmeteo">MOD_PRETTYWEATHER_FIELD_PROVIDER_OPENMETEO</option>
                 </field>
                 <field
@@ -162,7 +171,7 @@
                         type="text"
                         label="MOD_PRETTYWEATHER_FIELD_APIKEY_LABEL"
                         default=""
-                        showon="provider:openweathermap"
+                        showon="provider:openweathermap[OR]openweathermaponecall"
                 />
                 <field
                         name="units"

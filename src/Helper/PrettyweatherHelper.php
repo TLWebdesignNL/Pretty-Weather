@@ -63,7 +63,7 @@ class PrettyweatherHelper
 				throw new \InvalidArgumentException('No provider set', 400);
 			}
 
-			if (strtolower((string) $provider) === 'openweathermap' && empty($apiKey))
+			if (in_array(strtolower((string) $provider), ['openweathermap', 'openweathermaponecall'], true) && empty($apiKey))
 			{
 				throw new \InvalidArgumentException('No API key set', 400);
 			}
@@ -165,6 +165,10 @@ class PrettyweatherHelper
 
 			if ($provider === 'openmeteo') {
 				return $this->getOpenMeteoData($params);
+			}
+
+			if ($provider === 'openweathermaponecall') {
+				return $this->getOpenWeatherMapOneCallData($apiKey, $params);
 			}
 
 			return $this->getOpenWeatherMapData($apiKey, $params);
@@ -398,6 +402,192 @@ class PrettyweatherHelper
 	}
 
 	/**
+	 * Fetch current weather from the OpenWeatherMap One Call API 4.0 and return
+	 * it in canonical form.
+	 *
+	 * One Call API 4.0 splits data across separate endpoints, so two requests are
+	 * needed: one for the current conditions and one for the 1-day timeline that
+	 * carries the genuine daily minimum/maximum temperatures. Each module refresh
+	 * therefore consumes two of the included "One Call by Call" calls (the first
+	 * 1,000 calls/day are free). All three unit systems are supported natively, so
+	 * no conversion is required. The endpoint returns no location name; the optional
+	 * manual name fills {name}.
+	 *
+	 * @param  string    $apiKey API key.
+	 * @param  \stdClass $params Module params (expects latitude, longitude, units).
+	 * @return array|false       Canonical weather array on success, false on failure/validation issues.
+	 *
+	 * @since 1.0.3
+	 */
+	protected function getOpenWeatherMapOneCallData($apiKey, $params): array|false
+	{
+		$lat   = isset($params->latitude) ? (float) $params->latitude : null;
+		$lon   = isset($params->longitude) ? (float) $params->longitude : null;
+		$units = !empty($params->units) ? (string) $params->units : 'metric';
+
+		if ($lat === null || $lon === null || empty($apiKey)) {
+			return false;
+		}
+
+		$query = [
+			'lat'   => $lat,
+			'lon'   => $lon,
+			'appid' => $apiKey,
+			'units' => $units,
+		];
+
+		// Call 1: current conditions.
+		$currentUri = new Uri('https://api.openweathermap.org/data/4.0/onecall/current');
+		$currentUri->setQuery($query);
+		$current = $this->fetchOpenWeatherMapJson((string) $currentUri, $params);
+
+		// Call 2: 1-day timeline, which carries the true daily min/max.
+		$dailyUri = new Uri('https://api.openweathermap.org/data/4.0/onecall/timeline/1day');
+		$dailyUri->setQuery($query);
+		$daily = $this->fetchOpenWeatherMapJson((string) $dailyUri, $params);
+
+		if (!is_array($current) || !is_array($daily)) {
+			return false;
+		}
+
+		// Validate essential fields from both One Call 4.0 responses.
+		$hasCurrent = isset($current['data'][0])
+			&& is_array($current['data'][0])
+			&& array_key_exists('temp', $current['data'][0])
+			&& array_key_exists('feels_like', $current['data'][0]);
+
+		// The daily timeline can return several days; explicitly select the record
+		// covering today (not data[0], which is not guaranteed to be the current
+		// day) so min/max match the present, consistent with the other providers.
+		$dayRecord = $this->selectTodaysDailyRecord($daily['data'] ?? null);
+
+		if (!$hasCurrent || $dayRecord === null) {
+			return false;
+		}
+
+		// Normalise into the canonical OpenWeatherMap-shaped structure.
+		$weather = [
+			'main'  => [
+				'temp'       => (float) $current['data'][0]['temp'],
+				'feels_like' => (float) $current['data'][0]['feels_like'],
+				'temp_min'   => (float) $dayRecord['temp']['min'],
+				'temp_max'   => (float) $dayRecord['temp']['max'],
+			],
+			'name'  => '',
+			// Store the REQUESTED coordinates so the coord-change cache check is stable.
+			'coord' => ['lat' => $lat, 'lon' => $lon],
+			'dt'    => isset($current['data'][0]['dt']) ? (int) $current['data'][0]['dt'] : time(),
+		];
+
+		if (!empty($params->locationname)) {
+			$weather['name'] = (string) $params->locationname;
+		}
+
+		return $weather;
+	}
+
+	/**
+	 * Select the daily record covering the current day from a One Call 4.0 daily
+	 * timeline (data[]).
+	 *
+	 * Prefers the latest record whose timestamp is not in the future (i.e. today).
+	 * Falls back to the first record that carries a min/max when none are dated
+	 * today or earlier (e.g. a timeline that only starts tomorrow).
+	 *
+	 * @param  mixed $records The decoded daily "data" array, or null.
+	 * @return array|null     The chosen daily record, or null when none are usable.
+	 *
+	 * @since 1.0.3
+	 */
+	protected function selectTodaysDailyRecord($records): ?array
+	{
+		if (!is_array($records)) {
+			return null;
+		}
+
+		$now    = time();
+		$chosen = null;
+
+		foreach ($records as $record) {
+			if (!is_array($record) || !isset($record['temp']['min'], $record['temp']['max'])) {
+				continue;
+			}
+
+			$dt = isset($record['dt']) ? (int) $record['dt'] : null;
+
+			// Prefer the most recent record that is not in the future (today).
+			if ($dt !== null && $dt <= $now && ($chosen === null || $dt > (int) ($chosen['dt'] ?? 0))) {
+				$chosen = $record;
+			}
+		}
+
+		if ($chosen !== null) {
+			return $chosen;
+		}
+
+		// Fallback: first record that carries min/max.
+		foreach ($records as $record) {
+			if (is_array($record) && isset($record['temp']['min'], $record['temp']['max'])) {
+				return $record;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Perform a GET request against an OpenWeatherMap endpoint and decode the JSON.
+	 *
+	 * Shared by the One Call API 4.0 calls so the timeout, user agent and HTTP
+	 * error reporting behave identically for each request.
+	 *
+	 * @param  string    $url    Fully-qualified request URL (including query).
+	 * @param  \stdClass $params Module params (used for the debug flag).
+	 * @return array|null        Decoded response array, or null on error/invalid body.
+	 *
+	 * @since 1.0.3
+	 */
+	protected function fetchOpenWeatherMapJson(string $url, $params): ?array
+	{
+		// Perform GET using Joomla HTTP client with a strict timeout (max 5s)
+		$http = HttpFactory::getHttp(['timeout' => 5, 'userAgent' => 'PrettyWeather/1.0']);
+		$response = $http->get($url);
+
+		$code = (int) ($response->code ?? 0);
+		if ($code !== 200) {
+		    $debug = !empty($params->debug);
+		    if ($debug) {
+		        $app = Factory::getApplication();
+		        switch ($code) {
+		            case 401:
+		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_401'), 'warning');
+		                break;
+		            case 404:
+		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_404'), 'info');
+		                break;
+		            case 429:
+		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_429'), 'warning');
+		                break;
+		            default:
+		                $app->enqueueMessage(Text::sprintf('MOD_PRETTYWEATHER_ERROR_HTTP', $code), 'warning');
+		                break;
+		        }
+		    }
+
+		    return null;
+		}
+
+		$body = $response->body ?? '';
+		if ($body === '') {
+			return null;
+		}
+
+		$data = json_decode($body, true);
+
+		return is_array($data) ? $data : null;
+	}
+
+	/**
 	 * Build the rendered HTML from default content and conditional content rules.
 	 *
 	 * @param  \stdClass $module Joomla module instance.
@@ -418,12 +608,13 @@ class PrettyweatherHelper
 
 		$params = json_decode($module->params) ?: new \stdClass();
 		$blocks = $params->conditional_content ?? [];
+		$provider = isset($params->provider) ? strtolower((string) $params->provider) : '';
 
 		$out = [];
 
 		// check if there is default content and replace placeholders and add to array.
 		if (!empty($params->content)) {
-			$out[] = $this->replacePlaceholders($params->content, $data);
+			$out[] = $this->replacePlaceholders($params->content, $data, $provider);
 		}
 
 		if (is_object($blocks))
@@ -447,7 +638,7 @@ class PrettyweatherHelper
 					continue;
 				}
 
-				$out[] = $this->replacePlaceholders($content, $data);
+				$out[] = $this->replacePlaceholders($content, $data, $provider);
 			}
 		}
 		if (!$out) {
@@ -522,19 +713,27 @@ class PrettyweatherHelper
 	 *
 	 * Supported placeholders: {temp}, {feels_like}, {temp_min}, {temp_max}, {name}.
 	 *
-	 * @param  string $html Content with placeholders.
-	 * @param  array  $data Weather data array.
-	 * @return string       Content with placeholders replaced.
+	 * For OpenWeatherMap the {temp_min}/{temp_max} placeholders resolve to an empty
+	 * string: its current-weather endpoint reports min/max as the current temperature
+	 * for a single location, so the values are meaningless. Open-Meteo returns genuine
+	 * daily extremes and is left untouched.
+	 *
+	 * @param  string $html     Content with placeholders.
+	 * @param  array  $data     Weather data array.
+	 * @param  string $provider Lower-cased provider key (e.g. "openweathermap").
+	 * @return string           Content with placeholders replaced.
 	 *
 	 * @since 1.0.0
 	 */
-	protected function replacePlaceholders(string $html, array $data): string
+	protected function replacePlaceholders(string $html, array $data, string $provider = ''): string
 	{
+		$hideMinMax = ($provider === 'openweathermap');
+
 		$map = [
 			'{temp}'        => isset($data['main']['temp']) ? (int) $data['main']['temp'] : '',
 			'{feels_like}'  => isset($data['main']['feels_like']) ? (int) $data['main']['feels_like'] : '',
-			'{temp_min}'    => isset($data['main']['temp_min']) ? (int) $data['main']['temp_min'] : '',
-			'{temp_max}'    => isset($data['main']['temp_max']) ? (int) $data['main']['temp_max'] : '',
+			'{temp_min}'    => ($hideMinMax || !isset($data['main']['temp_min'])) ? '' : (int) $data['main']['temp_min'],
+			'{temp_max}'    => ($hideMinMax || !isset($data['main']['temp_max'])) ? '' : (int) $data['main']['temp_max'],
 			'{name}'        => isset($data['name']) ? (string) $data['name'] : '',
 		];
 
