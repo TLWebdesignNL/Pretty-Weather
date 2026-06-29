@@ -39,4 +39,12 @@
             <item>Added a backend note explaining that OpenWeatherMap's min/max temperatures are usually equal to the current temperature for a single location.</item>
         </addition>
     </changelog>
+    <changelog>
+        <element>mod_prettyweather</element>
+        <type>module</type>
+        <version>1.1.1</version>
+        <fix>
+            <item>Fixed a backend warning in Joomla 5.4 caused by the API key field's conditional display rule.</item>
+        </fix>
+    </changelog>
 </changelogs>

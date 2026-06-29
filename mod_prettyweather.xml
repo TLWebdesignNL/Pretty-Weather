@@ -7,7 +7,7 @@
     <authorUrl>https://tlwebdesign.nl</authorUrl>
     <copyright>TLWebdesign</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <description>MOD_PRETTYWEATHER_XML_DESCRIPTION</description>
     <scriptfile>script.php</scriptfile>
     <namespace path="src">TLWeb\Module\Prettyweather</namespace>
@@ -171,7 +171,7 @@
                         type="text"
                         label="MOD_PRETTYWEATHER_FIELD_APIKEY_LABEL"
                         default=""
-                        showon="provider:openweathermap[OR]openweathermaponecall"
+                        showon="provider:openweathermap[OR]provider:openweathermaponecall"
                 />
                 <field
                         name="units"
