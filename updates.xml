@@ -83,4 +83,25 @@
         <targetplatform name="joomla" version="5\.(2|3|4)|6"/>
         <client>site</client>
     </update>
+<update>
+        <name>Pretty Weather 1.1.1</name>
+        <description/>
+        <element>mod_prettyweather</element>
+        <type>module</type>
+        <version>1.1.1</version>
+        <downloads>
+            <downloadurl type="full" format="zip">
+                https://github.com/TLWebdesignNL/Pretty-Weather/archive/refs/tags/V1.1.1.zip
+            </downloadurl>
+        </downloads>
+        <tags>
+            <tag>stable</tag>
+        </tags>
+        <sha256>fe2e1ba5733fe0c5e5a1b3fc42c1bfc10dc70b19e38e1933455d8949b8738316</sha256>
+        <maintainer>TLWebdesign</maintainer>
+        <maintainerurl>https://www.tlwebdesign.nl/</maintainerurl>
+        <section>Updates</section>
+        <targetplatform name="joomla" version="5\.(2|3|4)|6"/>
+        <client>site</client>
+    </update>
 </updates>
