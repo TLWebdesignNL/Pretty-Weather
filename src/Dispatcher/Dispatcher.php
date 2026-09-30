@@ -36,9 +36,16 @@ class Dispatcher extends AbstractModuleDispatcher implements HelperFactoryAwareI
     {
         $data = parent::getLayoutData();
 
-	    $data['weatherData'] = $this->getHelperFactory()->getHelper('PrettyweatherHelper')->getWeather($data['module']);
-	    $data['display'] = $this->getHelperFactory()->getHelper('PrettyweatherHelper')->displayContent($data['module'], $data['weatherData']);
+        // A weather module must never take the page down: fall back to an
+        // empty module on any failure in the helper.
+        try {
+            $data['weatherData'] = $this->getHelperFactory()->getHelper('PrettyweatherHelper')->getWeather($data['module']);
+            $data['display']     = $this->getHelperFactory()->getHelper('PrettyweatherHelper')->displayContent($data['module'], $data['weatherData']);
+        } catch (\Throwable) {
+            $data['weatherData'] = false;
+            $data['display']     = null;
+        }
 
-		return $data;
+        return $data;
     }
 }

@@ -33,41 +33,38 @@ class PrettyweatherHelper
 	 * A refresh is triggered when the cached `dt` is older than the pause time
 	 * or when the configured latitude/longitude differ from the cached `coord`.
 	 *
+	 * Configuration errors (invalid module, missing provider or API key) never
+	 * throw: they return false and are reported through the debug channel.
+	 *
 	 * @param  \stdClass $module  Joomla module instance.
-	 * @return array|false        Decoded weather array on success, or false if unchanged/unavailable.
-	 * @throws \InvalidArgumentException When required params are missing.
-	 * @throws \RuntimeException         When the module reference is invalid.
+	 * @return array|false        Decoded weather array on success, or false if unavailable/misconfigured.
 	 *
 	 * @since 1.0.0
 	 */
 	public function getWeather($module): array|bool
 	{
-        if (!is_object($module)) {
-            throw new \RuntimeException('Invalid module reference', 404);
-        }
+		if (!is_object($module)) {
+			return false;
+		}
 
-        $params = json_decode($module->params) ?: new \stdClass();
+		$params = json_decode($module->params ?? '') ?: new \stdClass();
 
+		$provider = $params->provider ?? null;
+		$apiKey   = $params->apikey ?? null;
 
-			// Decode module params
+		// A provider is always required; an API key is only required for
+		// OpenWeatherMap. Open-Meteo is keyless.
+		if (empty($provider)) {
+			$this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_NO_PROVIDER');
 
-			// Extract required parameters
-			$provider = $params->provider ?? null;
-			$apiKey = $params->apikey ?? null;
+			return false;
+		}
 
-			// Validate parameters. A provider is always required; an API key is
-			// only required for providers that need one (e.g. OpenWeatherMap).
-			// Open-Meteo is keyless, so it must not be blocked by a missing key.
-			if (empty($provider))
-			{
-				throw new \InvalidArgumentException('No provider set', 400);
-			}
+		if (in_array(strtolower((string) $provider), ['openweathermap', 'openweathermaponecall'], true) && empty($apiKey)) {
+			$this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_NO_APIKEY');
 
-			if (in_array(strtolower((string) $provider), ['openweathermap', 'openweathermaponecall'], true) && empty($apiKey))
-			{
-				throw new \InvalidArgumentException('No API key set', 400);
-			}
-
+			return false;
+		}
 
 		// Get existing weather data from JSON file
 		$data = $this->getJsonFile(JPATH_ROOT . '/media/mod_prettyweather/data-' . $module->id . '.json');
@@ -102,6 +99,25 @@ class PrettyweatherHelper
 
 		// Save and return outcome (bool)
 		return is_array($data) ? $data : false;
+	}
+
+	/**
+	 * Enqueue a translated message when debug mode is enabled for the module.
+	 *
+	 * @param  \stdClass $params Module params (used for the debug flag).
+	 * @param  string    $key    Language key of the message.
+	 * @param  string    $type   Message type (message, notice, warning, error).
+	 * @return void
+	 *
+	 * @since 1.2.0
+	 */
+	protected function debugMessage($params, string $key, string $type = 'warning'): void
+	{
+		if (empty($params->debug ?? null)) {
+			return;
+		}
+
+		Factory::getApplication()->enqueueMessage(Text::_($key), $type);
 	}
 
 	/**
