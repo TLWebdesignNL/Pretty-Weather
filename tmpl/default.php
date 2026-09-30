@@ -13,7 +13,7 @@
 use Joomla\CMS\Language\Text;
 
 ?>
-<?php if ($params->get('debug')) : ?>
+<?php if ($debug) : ?>
     <?php $main = $weatherData['main'] ?? []; ?>
     <?php $hideMinMax = (strtolower((string) $params->get('provider')) === 'openweathermap'); ?>
     <code><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_HEADING'); ?><br>

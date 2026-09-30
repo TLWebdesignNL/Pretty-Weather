@@ -16,6 +16,7 @@ use Joomla\Filesystem\Folder;
 use Joomla\CMS\Uri\Uri;
 use Joomla\CMS\Http\HttpFactory;
 use Joomla\CMS\Language\Text;
+use Joomla\CMS\Log\Log;
 
 
 \defined('_JEXEC') or die;
@@ -233,22 +234,83 @@ class PrettyweatherHelper
 	}
 
 	/**
-	 * Enqueue a translated message when debug mode is enabled for the module.
+	 * Whether the current visitor may see debug output.
+	 *
+	 * Debug output can reveal configuration details, so it is limited to users
+	 * who can manage modules, or to sites running with JDEBUG enabled.
+	 *
+	 * @return bool
+	 *
+	 * @since 1.2.0
+	 */
+	public function canViewDebug(): bool
+	{
+		if (\defined('JDEBUG') && JDEBUG) {
+			return true;
+		}
+
+		$user = Factory::getApplication()->getIdentity();
+
+		return $user !== null && $user->authorise('core.manage', 'com_modules');
+	}
+
+	/**
+	 * Enqueue a translated message when debug mode is enabled for the module
+	 * and the current visitor may see debug output.
 	 *
 	 * @param  \stdClass $params Module params (used for the debug flag).
 	 * @param  string    $key    Language key of the message.
 	 * @param  string    $type   Message type (message, notice, warning, error).
+	 * @param  mixed     ...$args Optional sprintf arguments for the message.
 	 * @return void
 	 *
 	 * @since 1.2.0
 	 */
-	protected function debugMessage($params, string $key, string $type = 'warning'): void
+	protected function debugMessage($params, string $key, string $type = 'warning', ...$args): void
 	{
-		if (empty($params->debug ?? null)) {
+		if (empty($params->debug ?? null) || !$this->canViewDebug()) {
 			return;
 		}
 
-		Factory::getApplication()->enqueueMessage(Text::_($key), $type);
+		$message = $args ? Text::sprintf($key, ...$args) : Text::_($key);
+
+		Factory::getApplication()->enqueueMessage($message, $type);
+	}
+
+	/**
+	 * Write an exception to the module's log file with the API key redacted.
+	 *
+	 * Transport exceptions can contain the full request URL, including
+	 * `appid=<API key>`, so the message is never shown on the frontend.
+	 *
+	 * @param  \Throwable  $e      The exception.
+	 * @param  string|null $apiKey The configured API key, if any.
+	 * @return void
+	 *
+	 * @since 1.2.0
+	 */
+	public function logException(\Throwable $e, ?string $apiKey = null): void
+	{
+		static $loggerAdded = false;
+
+		$message = $e->getMessage();
+
+		if (!empty($apiKey)) {
+			$message = str_replace($apiKey, '***', $message);
+		}
+
+		$message = preg_replace('/(appid=)[^&\s"\']+/i', '$1***', $message);
+
+		// Logging is best effort: an unwritable log folder must not break the page.
+		try {
+			if (!$loggerAdded) {
+				Log::addLogger(['text_file' => 'mod_prettyweather.php'], Log::ALL, ['mod_prettyweather']);
+				$loggerAdded = true;
+			}
+
+			Log::add(\get_class($e) . ': ' . $message, Log::WARNING, 'mod_prettyweather');
+		} catch (\Throwable) {
+		}
 	}
 
 	/**
@@ -320,11 +382,9 @@ class PrettyweatherHelper
 
 			return $this->getOpenWeatherMapData($apiKey, $params);
 		} catch (\Throwable $e) {
-			$debug = !empty($params->debug ?? null);
-			if ($debug) {
-			    $app = Factory::getApplication();
-			    $app->enqueueMessage(Text::sprintf('MOD_PRETTYWEATHER_ERROR_EXCEPTION', $e->getMessage()), 'error');
-			}
+			$this->logException($e, $apiKey !== null ? (string) $apiKey : null);
+			$this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_EXCEPTION', 'error');
+
 			return false;
 		}
 	}
@@ -368,26 +428,9 @@ class PrettyweatherHelper
 
 		$code  = (int) ($response->code ?? 0);
 		if ($code !== 200) {
-		    $debug = !empty($params->debug);
-		    if ($debug) {
-		        $app = Factory::getApplication();
-		        switch ($code) {
-		            case 401:
-		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_401'), 'warning');
-		                break;
-		            case 404:
-		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_404'), 'info');
-		                break;
-		            case 429:
-		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_429'), 'warning');
-		                break;
-		            default:
-		                $app->enqueueMessage(Text::sprintf('MOD_PRETTYWEATHER_ERROR_HTTP', $code), 'warning');
-		                break;
-		        }
-		    }
+			$this->reportOpenWeatherMapHttpError($params, $code);
 
-		    return false;
+			return false;
 		}
 
         $body = $response->body ?? '';
@@ -472,20 +515,13 @@ class PrettyweatherHelper
 
 		$code = (int) ($response->code ?? 0);
 		if ($code !== 200) {
-		    $debug = !empty($params->debug);
-		    if ($debug) {
-		        $app = Factory::getApplication();
-		        switch ($code) {
-		            case 429:
-		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_OPENMETEO_429'), 'warning');
-		                break;
-		            default:
-		                $app->enqueueMessage(Text::sprintf('MOD_PRETTYWEATHER_ERROR_OPENMETEO_HTTP', $code), 'warning');
-		                break;
-		        }
-		    }
+			if ($code === 429) {
+				$this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_OPENMETEO_429');
+			} else {
+				$this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_OPENMETEO_HTTP', 'warning', $code);
+			}
 
-		    return false;
+			return false;
 		}
 
 		$body = $response->body ?? '';
@@ -688,6 +724,25 @@ class PrettyweatherHelper
 	}
 
 	/**
+	 * Report a non-200 OpenWeatherMap response through the debug channel.
+	 *
+	 * @param  \stdClass $params Module params (used for the debug flag).
+	 * @param  int       $code   HTTP status code.
+	 * @return void
+	 *
+	 * @since 1.2.0
+	 */
+	protected function reportOpenWeatherMapHttpError($params, int $code): void
+	{
+		match ($code) {
+			401     => $this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_401'),
+			404     => $this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_404', 'info'),
+			429     => $this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_429'),
+			default => $this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_HTTP', 'warning', $code),
+		};
+	}
+
+	/**
 	 * Perform a GET request against an OpenWeatherMap endpoint and decode the JSON.
 	 *
 	 * Shared by the One Call API 4.0 calls so the timeout, user agent and HTTP
@@ -707,26 +762,9 @@ class PrettyweatherHelper
 
 		$code = (int) ($response->code ?? 0);
 		if ($code !== 200) {
-		    $debug = !empty($params->debug);
-		    if ($debug) {
-		        $app = Factory::getApplication();
-		        switch ($code) {
-		            case 401:
-		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_401'), 'warning');
-		                break;
-		            case 404:
-		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_404'), 'info');
-		                break;
-		            case 429:
-		                $app->enqueueMessage(Text::_('MOD_PRETTYWEATHER_ERROR_429'), 'warning');
-		                break;
-		            default:
-		                $app->enqueueMessage(Text::sprintf('MOD_PRETTYWEATHER_ERROR_HTTP', $code), 'warning');
-		                break;
-		        }
-		    }
+			$this->reportOpenWeatherMapHttpError($params, $code);
 
-		    return null;
+			return null;
 		}
 
 		$body = $response->body ?? '';
