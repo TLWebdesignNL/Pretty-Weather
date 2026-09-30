@@ -168,8 +168,10 @@
                 </field>
                 <field
                         name="apikey"
-                        type="text"
+                        type="password"
                         label="MOD_PRETTYWEATHER_FIELD_APIKEY_LABEL"
+                        description="MOD_PRETTYWEATHER_FIELD_APIKEY_DESC"
+                        autocomplete="off"
                         default=""
                         showon="provider:openweathermap[OR]provider:openweathermaponecall"
                 />
