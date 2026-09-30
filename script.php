@@ -8,126 +8,159 @@
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
-// No direct access to this file
 \defined('_JEXEC') or die;
 
+use Joomla\CMS\Installer\InstallerAdapter;
+use Joomla\CMS\Installer\InstallerScriptInterface;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Log\Log;
 use Joomla\Filesystem\Folder;
 
 /**
- * Script file of Prettyweather module
+ * Installer script for mod_prettyweather.
+ *
+ * @since  1.2.0
  */
-class mod_prettyweatherInstallerScript
-{
+return new class () implements InstallerScriptInterface {
     /**
-     * Extension script constructor.
+     * Minimum Joomla version required to install the module.
      *
-     * @return  void
+     * @var    string
+     * @since  1.2.0
      */
-    public function __construct()
-    {
-        $this->minimumJoomla = '5.2';
-        $this->minimumPhp    = JOOMLA_MINIMUM_PHP;
-    }
+    private string $minimumJoomla = '5.2';
 
     /**
-     * Method to install the extension
+     * Site folder holding the runtime weather cache.
      *
-     * @param   InstallerAdapter  $parent  The class calling this method
-     *
-     * @return  boolean  True on success
+     * @var    string
+     * @since  1.2.0
      */
-    function install($parent)
+    private const CACHE_FOLDER = '/cache/mod_prettyweather';
+
+    /**
+     * Runs after a fresh install.
+     *
+     * @param   InstallerAdapter  $adapter  The adapter calling this method.
+     *
+     * @return  boolean  True on success.
+     *
+     * @since   1.2.0
+     */
+    public function install(InstallerAdapter $adapter): bool
     {
-        echo Text::_('MOD_PRETTYWEATHER_INSTALLERSCRIPT_INSTALL');
+        $this->message('MOD_PRETTYWEATHER_INSTALLERSCRIPT_INSTALL');
 
         return true;
     }
 
     /**
-     * Method to uninstall the extension
+     * Runs after an update.
      *
-     * @param   InstallerAdapter  $parent  The class calling this method
+     * @param   InstallerAdapter  $adapter  The adapter calling this method.
      *
-     * @return  boolean  True on success
+     * @return  boolean  True on success.
+     *
+     * @since   1.2.0
      */
-    function uninstall($parent)
+    public function update(InstallerAdapter $adapter): bool
+    {
+        // Before 1.2.0 weather data was cached in the public media folder.
+        $this->removeLegacyCacheFiles();
+
+        $this->message('MOD_PRETTYWEATHER_INSTALLERSCRIPT_UPDATE');
+
+        return true;
+    }
+
+    /**
+     * Runs on uninstall and removes all runtime data.
+     *
+     * @param   InstallerAdapter  $adapter  The adapter calling this method.
+     *
+     * @return  boolean  True on success.
+     *
+     * @since   1.2.0
+     */
+    public function uninstall(InstallerAdapter $adapter): bool
     {
         $this->removeLegacyCacheFiles();
 
         // Cleanup is best effort: a leftover cache folder must not block uninstalling.
         try {
-            if (is_dir(JPATH_SITE . '/cache/mod_prettyweather')) {
-                Folder::delete(JPATH_SITE . '/cache/mod_prettyweather');
+            if (is_dir(JPATH_SITE . self::CACHE_FOLDER)) {
+                Folder::delete(JPATH_SITE . self::CACHE_FOLDER);
             }
         } catch (\Throwable) {
         }
 
-        echo Text::_('MOD_PRETTYWEATHER_INSTALLERSCRIPT_UNINSTALL');
+        $this->message('MOD_PRETTYWEATHER_INSTALLERSCRIPT_UNINSTALL');
 
         return true;
     }
 
     /**
-     * Method to update the extension
+     * Checks the minimum PHP and Joomla versions before installing or updating.
      *
-     * @param   InstallerAdapter  $parent  The class calling this method
+     * @param   string            $type     The type of change (install, update, discover_install or uninstall).
+     * @param   InstallerAdapter  $adapter  The adapter calling this method.
      *
-     * @return  boolean  True on success
+     * @return  boolean  True when the requirements are met.
+     *
+     * @since   1.2.0
      */
-    function update($parent)
+    public function preflight(string $type, InstallerAdapter $adapter): bool
     {
-        // Before 1.2.0 weather data was cached in the public media folder.
-        $this->removeLegacyCacheFiles();
+        if ($type === 'uninstall') {
+            return true;
+        }
 
-        echo Text::_('MOD_PRETTYWEATHER_INSTALLERSCRIPT_UPDATE');
-
-        return true;
-    }
-
-    /**
-     * Function called before extension installation/update/removal procedure commences
-     *
-     * @param   string            $type    The type of change (install, update or discover_install, not uninstall)
-     * @param   InstallerAdapter  $parent  The class calling this method
-     *
-     * @return  boolean  True on success
-     */
-    function preflight($type, $parent)
-    {
-        // Check for the minimum PHP version before continuing
-        if (!empty($this->minimumPhp) && version_compare(PHP_VERSION, $this->minimumPhp, '<')) {
-            Log::add(Text::sprintf('JLIB_INSTALLER_MINIMUM_PHP', $this->minimumPhp), Log::WARNING, 'jerror');
+        if (version_compare(PHP_VERSION, JOOMLA_MINIMUM_PHP, '<')) {
+            Log::add(Text::sprintf('JLIB_INSTALLER_MINIMUM_PHP', JOOMLA_MINIMUM_PHP), Log::WARNING, 'jerror');
 
             return false;
         }
 
-        // Check for the minimum Joomla version before continuing
-        if (!empty($this->minimumJoomla) && version_compare(JVERSION, $this->minimumJoomla, '<')) {
+        if (version_compare(JVERSION, $this->minimumJoomla, '<')) {
             Log::add(Text::sprintf('JLIB_INSTALLER_MINIMUM_JOOMLA', $this->minimumJoomla), Log::WARNING, 'jerror');
 
             return false;
         }
 
-        echo Text::_('MOD_PRETTYWEATHER_INSTALLERSCRIPT_PREFLIGHT');
-
         return true;
     }
 
     /**
-     * Function called after extension installation/update/removal procedure commences
+     * Runs after install, update or discover install.
      *
-     * @param   string            $type    The type of change (install, update or discover_install, not uninstall)
-     * @param   InstallerAdapter  $parent  The class calling this method
+     * @param   string            $type     The type of change (install, update or discover_install).
+     * @param   InstallerAdapter  $adapter  The adapter calling this method.
      *
-     * @return  boolean  True on success
+     * @return  boolean  True on success.
+     *
+     * @since   1.2.0
      */
-    function postflight($type, $parent)
+    public function postflight(string $type, InstallerAdapter $adapter): bool
     {
-        echo Text::_('MOD_PRETTYWEATHER_INSTALLERSCRIPT_POSTFLIGHT');
-
         return true;
+    }
+
+    /**
+     * Echo a translated installer message, skipping empty strings.
+     *
+     * @param   string  $key  Language key.
+     *
+     * @return  void
+     *
+     * @since   1.2.0
+     */
+    private function message(string $key): void
+    {
+        $text = Text::_($key);
+
+        if ($text !== '' && $text !== $key) {
+            echo $text;
+        }
     }
 
     /**
@@ -143,4 +176,4 @@ class mod_prettyweatherInstallerScript
             @unlink($file);
         }
     }
-}
+};

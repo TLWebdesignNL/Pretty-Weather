@@ -33,11 +33,6 @@
                         type="note"
                         description="MOD_PRETTYWEATHER_FIELD_OWNERINFO_DESC"
                 />
-                <field
-                        name="info"
-                        type="note"
-                        description="MOD_PRETTYWEATHER_FIELD_INFO_DESC"
-                />
             </fieldset>
             <fieldset name="content">
                 <field
