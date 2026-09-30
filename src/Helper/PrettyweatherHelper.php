@@ -67,28 +67,32 @@ class PrettyweatherHelper
 		}
 
 		$cacheFile = JPATH_ROOT . '/media/mod_prettyweather/data-' . $module->id . '.json';
-		$cache     = $this->getJsonFile($cacheFile);
-
-		// The cache wraps the weather payload with our own metadata so freshness
-		// and coordinate checks never depend on provider fields such as `dt`.
-		// Old-format files (no `meta`) count as stale and migrate on next fetch.
-		$meta    = (isset($cache['meta']) && is_array($cache['meta'])) ? $cache['meta'] : null;
-		$weather = $meta !== null ? ($cache['weather'] ?? null) : $cache;
-		$weather = is_array($weather) ? $weather : null;
 
 		$pauseTimeSeconds = (!empty($params->pausetime) ? (int) $params->pausetime : 10) * 60;
 		$lat = isset($params->latitude) && $params->latitude !== '' ? (float) $params->latitude : null;
 		$lon = isset($params->longitude) && $params->longitude !== '' ? (float) $params->longitude : null;
 
-		$isStale = $meta === null
-			|| $weather === null
-			|| !isset($meta['fetched_at'])
-			|| (int) $meta['fetched_at'] < (time() - $pauseTimeSeconds);
+		[$meta, $weather] = $this->readCache($cacheFile);
 
-		$coordsChanged = $meta !== null
-			&& ($this->coordChanged($meta['lat'] ?? null, $lat) || $this->coordChanged($meta['lon'] ?? null, $lon));
+		if (!$this->needsRefresh($meta, $weather, $lat, $lon, $pauseTimeSeconds)) {
+			return $weather ?? false;
+		}
 
-		if ($isStale || $coordsChanged) {
+		// Only one request refreshes at a time; the others serve the cached data.
+		$lock = $this->acquireLock($cacheFile . '.lock');
+
+		if ($lock === null) {
+			return $weather ?? false;
+		}
+
+		try {
+			// Another request may have refreshed the cache while we waited for the lock.
+			[$meta, $weather] = $this->readCache($cacheFile);
+
+			if (!$this->needsRefresh($meta, $weather, $lat, $lon, $pauseTimeSeconds)) {
+				return $weather ?? false;
+			}
+
 			$weatherData = $this->getWeatherData($provider, $apiKey, $params);
 
 			if ($weatherData) {
@@ -102,10 +106,111 @@ class PrettyweatherHelper
 
 				return $weatherData;
 			}
+
+			// Record the failure for back-off, keeping the last good data.
+			$meta                 = $meta ?? [];
+			$meta['last_attempt'] = time();
+			$meta['failures']     = (int) ($meta['failures'] ?? 0) + 1;
+
+			$this->saveJsonFile(['meta' => $meta, 'weather' => $weather], $cacheFile);
+		} finally {
+			flock($lock, LOCK_UN);
+			fclose($lock);
 		}
 
 		// Fall back to the last stored data (possibly stale) when the fetch failed.
 		return $weather ?? false;
+	}
+
+	/**
+	 * Read the cache file and split it into metadata and weather payload.
+	 *
+	 * Old-format files (the bare weather array, no `meta`) return null metadata
+	 * so they count as stale and migrate on the next successful fetch.
+	 *
+	 * @param  string $cacheFile Absolute path of the cache file.
+	 * @return array             [?array $meta, ?array $weather]
+	 *
+	 * @since 1.2.0
+	 */
+	protected function readCache(string $cacheFile): array
+	{
+		$cache   = $this->getJsonFile($cacheFile);
+		$meta    = (isset($cache['meta']) && is_array($cache['meta'])) ? $cache['meta'] : null;
+		$weather = $meta !== null ? ($cache['weather'] ?? null) : $cache;
+
+		return [$meta, is_array($weather) ? $weather : null];
+	}
+
+	/**
+	 * Decide whether the cache must be refreshed.
+	 *
+	 * Freshness and coordinate checks use our own metadata, never provider
+	 * fields such as `dt`. After a failed fetch no new attempt is made until the
+	 * back-off window has passed: max(pause time, 5 min), doubling per
+	 * consecutive failure, capped at one hour.
+	 *
+	 * @param  ?array     $meta             Cache metadata.
+	 * @param  ?array     $weather          Cached weather payload.
+	 * @param  float|null $lat              Configured latitude.
+	 * @param  float|null $lon              Configured longitude.
+	 * @param  int        $pauseTimeSeconds Pause time between API calls.
+	 * @return bool
+	 *
+	 * @since 1.2.0
+	 */
+	protected function needsRefresh(?array $meta, ?array $weather, ?float $lat, ?float $lon, int $pauseTimeSeconds): bool
+	{
+		$failures = (int) ($meta['failures'] ?? 0);
+
+		if ($failures > 0) {
+			$backOff = min(max($pauseTimeSeconds, 300) * 2 ** min($failures - 1, 6), 3600);
+
+			if (time() - (int) ($meta['last_attempt'] ?? 0) < $backOff) {
+				return false;
+			}
+		}
+
+		if ($meta === null || $weather === null || !isset($meta['fetched_at'])) {
+			return true;
+		}
+
+		if ((int) $meta['fetched_at'] < (time() - $pauseTimeSeconds)) {
+			return true;
+		}
+
+		return $this->coordChanged($meta['lat'] ?? null, $lat) || $this->coordChanged($meta['lon'] ?? null, $lon);
+	}
+
+	/**
+	 * Take a non-blocking exclusive lock.
+	 *
+	 * @param  string $lockFile Absolute path of the lock file.
+	 * @return resource|null    Lock handle, or null when the lock is held elsewhere or unavailable.
+	 *
+	 * @since 1.2.0
+	 */
+	protected function acquireLock(string $lockFile)
+	{
+		$dir = dirname($lockFile);
+
+		if (!is_dir($dir)) {
+			Folder::create($dir);
+		}
+
+		$handle = @fopen($lockFile, 'c');
+
+		if ($handle === false) {
+			return null;
+		}
+
+		if (!flock($handle, LOCK_EX | LOCK_NB)) {
+			fclose($handle);
+
+			return null;
+		}
+
+		return $handle;
 	}
 
 	/**
@@ -257,8 +362,8 @@ class PrettyweatherHelper
 		$uri = new Uri($base);
 		$uri->setQuery($query);
 
-		// Perform GET using Joomla HTTP client with a strict timeout (max 5s)
-		$http = HttpFactory::getHttp(['timeout' => 5, 'userAgent' => 'PrettyWeather/1.0']);
+		// Perform GET using Joomla HTTP client with a strict timeout (max 3s)
+		$http = HttpFactory::getHttp(['timeout' => 3, 'userAgent' => 'PrettyWeather/1.0']);
 		$response = $http->get((string) $uri);
 
 		$code  = (int) ($response->code ?? 0);
@@ -361,8 +466,8 @@ class PrettyweatherHelper
 		$uri = new Uri($base);
 		$uri->setQuery($query);
 
-		// Perform GET using Joomla HTTP client with a strict timeout (max 5s)
-		$http = HttpFactory::getHttp(['timeout' => 5, 'userAgent' => 'PrettyWeather/1.0']);
+		// Perform GET using Joomla HTTP client with a strict timeout (max 3s)
+		$http = HttpFactory::getHttp(['timeout' => 3, 'userAgent' => 'PrettyWeather/1.0']);
 		$response = $http->get((string) $uri);
 
 		$code = (int) ($response->code ?? 0);
@@ -483,6 +588,11 @@ class PrettyweatherHelper
 		$currentUri->setQuery($query);
 		$current = $this->fetchOpenWeatherMapJson((string) $currentUri, $params);
 
+		// Don't spend a second (billed) call when the first one failed.
+		if (!is_array($current)) {
+			return false;
+		}
+
 		// Call 2: 1-day timeline, which carries the true daily min/max.
 		$dailyUri = new Uri('https://api.openweathermap.org/data/4.0/onecall/timeline/1day');
 		$dailyUri->setQuery($query);
@@ -591,8 +701,8 @@ class PrettyweatherHelper
 	 */
 	protected function fetchOpenWeatherMapJson(string $url, $params): ?array
 	{
-		// Perform GET using Joomla HTTP client with a strict timeout (max 5s)
-		$http = HttpFactory::getHttp(['timeout' => 5, 'userAgent' => 'PrettyWeather/1.0']);
+		// Perform GET using Joomla HTTP client with a strict timeout (max 3s)
+		$http = HttpFactory::getHttp(['timeout' => 3, 'userAgent' => 'PrettyWeather/1.0']);
 		$response = $http->get($url);
 
 		$code = (int) ($response->code ?? 0);

@@ -44,6 +44,7 @@ In the module settings:
 4. **Latitude / Longitude** — the location to fetch weather for (dot notation, e.g. `50.997873` / `5.870567`).
 5. **Location name** *(optional)* — overrides/fills the `{name}` placeholder; needed to show a name with One Call API 4.0 or Open-Meteo.
 6. **Time between API calls** — minimum minutes before the data is refreshed (caching).
+   Only one visitor request refreshes the data at a time; others are served the cached values. Each API call times out after 3 seconds, so a refresh adds at most about 3 s to that one page view (6 s for One Call API 4.0, which makes two calls). If a refresh fails, the last good data keeps being shown and no new attempt is made for the pause time (at least 5 minutes), doubling after each further failure up to one hour.
 7. **Debug** — show the latest raw values and API errors in the frontend while troubleshooting.
 
 ### Content & placeholders
