@@ -13,9 +13,10 @@ namespace TLWeb\Module\Prettyweather\Site\Helper;
 use Joomla\CMS\Factory;
 use Joomla\Filesystem\Folder;
 use Joomla\CMS\Uri\Uri;
-use Joomla\CMS\Http\HttpFactory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Log\Log;
+use Joomla\Http\Http;
+use Joomla\Http\HttpFactory;
 
 
 \defined('_JEXEC') or die;
@@ -472,7 +473,6 @@ class PrettyweatherHelper
 		$query = [
 			'lat'      => $lat,
 			'lon'      => $lon,
-			'exclude'  => '',
 			'appid'    => $apiKey,
 			'units'    => $units,
 		];
@@ -480,18 +480,16 @@ class PrettyweatherHelper
 		$uri = new Uri($base);
 		$uri->setQuery($query);
 
-		// Perform GET using Joomla HTTP client with a strict timeout (max 3s)
-		$http = HttpFactory::getHttp(['timeout' => 3, 'userAgent' => 'PrettyWeather/1.0']);
-		$response = $http->get((string) $uri);
+		$response = $this->http()->get((string) $uri);
 
-		$code  = (int) ($response->code ?? 0);
+		$code = $response->getStatusCode();
 		if ($code !== 200) {
 			$this->reportOpenWeatherMapHttpError($params, $code);
 
 			return false;
 		}
 
-        $body = $response->body ?? '';
+		$body = (string) $response->getBody();
         if ($body === '') {
             return false;
         }
@@ -562,11 +560,9 @@ class PrettyweatherHelper
 		$uri = new Uri($base);
 		$uri->setQuery($query);
 
-		// Perform GET using Joomla HTTP client with a strict timeout (max 3s)
-		$http = HttpFactory::getHttp(['timeout' => 3, 'userAgent' => 'PrettyWeather/1.0']);
-		$response = $http->get((string) $uri);
+		$response = $this->http()->get((string) $uri);
 
-		$code = (int) ($response->code ?? 0);
+		$code = $response->getStatusCode();
 		if ($code !== 200) {
 			if ($code === 429) {
 				$this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_OPENMETEO_429');
@@ -577,7 +573,7 @@ class PrettyweatherHelper
 			return false;
 		}
 
-		$body = $response->body ?? '';
+		$body = (string) $response->getBody();
 		if ($body === '') {
 			return false;
 		}
@@ -781,6 +777,32 @@ class PrettyweatherHelper
 	}
 
 	/**
+	 * Build the HTTP client shared by all provider requests.
+	 *
+	 * Uses a strict 3 s timeout so a slow provider only briefly delays the one
+	 * request that refreshes the cache, and identifies the module (with its
+	 * manifest version) in the user agent.
+	 *
+	 * @return Http
+	 *
+	 * @since 1.2.0
+	 */
+	private function http(): Http
+	{
+		static $version = null;
+
+		if ($version === null) {
+			$manifest = @simplexml_load_file(\dirname(__DIR__, 2) . '/mod_prettyweather.xml');
+			$version  = $manifest !== false && isset($manifest->version) ? (string) $manifest->version : '';
+		}
+
+		return (new HttpFactory())->getHttp([
+			'timeout'   => 3,
+			'userAgent' => 'PrettyWeather' . ($version !== '' ? '/' . $version : ''),
+		]);
+	}
+
+	/**
 	 * Perform a GET request against an OpenWeatherMap endpoint and decode the JSON.
 	 *
 	 * Shared by the One Call API 4.0 calls so the timeout, user agent and HTTP
@@ -794,18 +816,16 @@ class PrettyweatherHelper
 	 */
 	protected function fetchOpenWeatherMapJson(string $url, $params): ?array
 	{
-		// Perform GET using Joomla HTTP client with a strict timeout (max 3s)
-		$http = HttpFactory::getHttp(['timeout' => 3, 'userAgent' => 'PrettyWeather/1.0']);
-		$response = $http->get($url);
+		$response = $this->http()->get($url);
 
-		$code = (int) ($response->code ?? 0);
+		$code = $response->getStatusCode();
 		if ($code !== 200) {
 			$this->reportOpenWeatherMapHttpError($params, $code);
 
 			return null;
 		}
 
-		$body = $response->body ?? '';
+		$body = (string) $response->getBody();
 		if ($body === '') {
 			return null;
 		}
