@@ -43,8 +43,8 @@ class Dispatcher extends AbstractModuleDispatcher implements HelperFactoryAwareI
         try {
             $helper = $this->getHelperFactory()->getHelper('PrettyweatherHelper');
 
-            $data['weatherData'] = $helper->getWeather($data['module']);
-            $data['display']     = $helper->displayContent($data['module'], $data['weatherData']);
+            $data['weatherData'] = $helper->getWeather((int) $data['module']->id, $data['params']);
+            $data['display']     = $helper->displayContent($data['params'], $data['weatherData']);
             $data['debug']       = (bool) $data['params']->get('debug') && $helper->canViewDebug();
         } catch (\Throwable $e) {
             $data['weatherData'] = false;

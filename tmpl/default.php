@@ -32,7 +32,7 @@ use Joomla\CMS\Language\Text;
 <?php if ($display) : ?>
     <div class="prettyWeatherWrapper">
         <div class="prettyWeather mod-<?php echo (int) $module->id; ?>">
-			<?php echo $display; ?>
+            <?php echo $display; ?>
         </div>
     </div>
 <?php endif; ?>
