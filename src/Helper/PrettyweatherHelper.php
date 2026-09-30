@@ -30,8 +30,8 @@ class PrettyweatherHelper
 	/**
 	 * Retrieve weather data and update the JSON cache when stale or when coordinates changed.
 	 *
-	 * A refresh is triggered when the cached `dt` is older than the pause time
-	 * or when the configured latitude/longitude differ from the cached `coord`.
+	 * A refresh is triggered when the cache's `meta.fetched_at` is older than the
+	 * pause time or when the configured latitude/longitude differ from `meta.lat/lon`.
 	 *
 	 * Configuration errors (invalid module, missing provider or API key) never
 	 * throw: they return false and are reported through the debug channel.
@@ -66,39 +66,65 @@ class PrettyweatherHelper
 			return false;
 		}
 
-		// Get existing weather data from JSON file
-		$data = $this->getJsonFile(JPATH_ROOT . '/media/mod_prettyweather/data-' . $module->id . '.json');
+		$cacheFile = JPATH_ROOT . '/media/mod_prettyweather/data-' . $module->id . '.json';
+		$cache     = $this->getJsonFile($cacheFile);
+
+		// The cache wraps the weather payload with our own metadata so freshness
+		// and coordinate checks never depend on provider fields such as `dt`.
+		// Old-format files (no `meta`) count as stale and migrate on next fetch.
+		$meta    = (isset($cache['meta']) && is_array($cache['meta'])) ? $cache['meta'] : null;
+		$weather = $meta !== null ? ($cache['weather'] ?? null) : $cache;
+		$weather = is_array($weather) ? $weather : null;
+
 		$pauseTimeSeconds = (!empty($params->pausetime) ? (int) $params->pausetime : 10) * 60;
-		// Determine if we need to update: time-based or coordinate change
-		$now = time();
-		$isStale = empty($data) || !isset($data['dt']) || ($data['dt'] < ($now - $pauseTimeSeconds));
+		$lat = isset($params->latitude) && $params->latitude !== '' ? (float) $params->latitude : null;
+		$lon = isset($params->longitude) && $params->longitude !== '' ? (float) $params->longitude : null;
 
-		// Compare current params lat/lon with stored JSON coords
-		$latParam = isset($params->latitude) ? (float) $params->latitude : null;
-		$lonParam = isset($params->longitude) ? (float) $params->longitude : null;
-		$hasCoordsInData = isset($data['coord']['lat']) && isset($data['coord']['lon']);
-		$coordsChanged = false;
-		if ($latParam !== null && $lonParam !== null && $hasCoordsInData) {
-			// Use a tiny epsilon to avoid float jitter
-			$coordsChanged = (abs((float)$data['coord']['lat'] - $latParam) > 1e-6)
-				|| (abs((float)$data['coord']['lon'] - $lonParam) > 1e-6);
-		}
+		$isStale = $meta === null
+			|| $weather === null
+			|| !isset($meta['fetched_at'])
+			|| (int) $meta['fetched_at'] < (time() - $pauseTimeSeconds);
 
-		if ($isStale || $coordsChanged)
-		{
-            // fetch weatherData if update is needed.
+		$coordsChanged = $meta !== null
+			&& ($this->coordChanged($meta['lat'] ?? null, $lat) || $this->coordChanged($meta['lon'] ?? null, $lon));
+
+		if ($isStale || $coordsChanged) {
 			$weatherData = $this->getWeatherData($provider, $apiKey, $params);
 
-			if ($weatherData)
-			{
-				$this->saveJsonFile($weatherData, JPATH_ROOT . '/media/mod_prettyweather/data-' . $module->id . '.json');
+			if ($weatherData) {
+				$this->saveJsonFile(
+					[
+						'meta'    => ['fetched_at' => time(), 'lat' => $lat, 'lon' => $lon],
+						'weather' => $weatherData,
+					],
+					$cacheFile
+				);
 
 				return $weatherData;
 			}
 		}
 
-		// Save and return outcome (bool)
-		return is_array($data) ? $data : false;
+		// Fall back to the last stored data (possibly stale) when the fetch failed.
+		return $weather ?? false;
+	}
+
+	/**
+	 * Compare a cached coordinate with the configured one.
+	 *
+	 * @param  mixed      $cached  Coordinate stored in the cache metadata.
+	 * @param  float|null $current Coordinate from the module params.
+	 * @return bool                True when they differ.
+	 *
+	 * @since 1.2.0
+	 */
+	protected function coordChanged($cached, ?float $current): bool
+	{
+		if ($cached === null || $current === null) {
+			return $cached !== $current;
+		}
+
+		// Use a tiny epsilon to avoid float jitter.
+		return abs((float) $cached - $current) > 1e-6;
 	}
 
 	/**
