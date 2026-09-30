@@ -32,7 +32,7 @@ Providers that do not return a location name (One Call API 4.0 and Open-Meteo) u
 
 ## Installation
 
-Install the module ZIP through **System → Install → Extensions** in the Joomla administrator. Updates are delivered automatically through the built-in Joomla update server.
+Download `mod_prettyweather-x.y.z.zip` from the [latest GitHub release](https://github.com/TLWebdesignNL/Pretty-Weather/releases/latest) and install it through **System → Install → Extensions** in the Joomla administrator. Updates are delivered automatically through the built-in Joomla update server.
 
 ## Configuration
 
