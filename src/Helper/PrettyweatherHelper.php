@@ -29,10 +29,11 @@ use Joomla\CMS\Log\Log;
 class PrettyweatherHelper
 {
 	/**
-	 * Retrieve weather data and update the JSON cache when stale or when coordinates changed.
+	 * Retrieve weather data and update the JSON cache when stale or when the configuration changed.
 	 *
 	 * A refresh is triggered when the cache's `meta.fetched_at` is older than the
-	 * pause time or when the configured latitude/longitude differ from `meta.lat/lon`.
+	 * pause time or when `meta.fingerprint` (provider, units, lat, lon) differs
+	 * from the current configuration.
 	 *
 	 * Configuration errors (invalid module, missing provider or API key) never
 	 * throw: they return false and are reported through the debug channel.
@@ -82,9 +83,12 @@ class PrettyweatherHelper
 		$pauseTime        = is_numeric($params->pausetime ?? null) ? (int) $params->pausetime : 10;
 		$pauseTimeSeconds = max(1, $pauseTime) * 60;
 
+		$units       = !empty($params->units) ? (string) $params->units : 'metric';
+		$fingerprint = sha1(strtolower((string) $provider) . '|' . $units . '|' . $lat . '|' . $lon);
+
 		[$meta, $weather] = $this->readCache($cacheFile);
 
-		if (!$this->needsRefresh($meta, $weather, $lat, $lon, $pauseTimeSeconds)) {
+		if (!$this->needsRefresh($meta, $weather, $fingerprint, $pauseTimeSeconds)) {
 			return $weather ?? false;
 		}
 
@@ -99,7 +103,7 @@ class PrettyweatherHelper
 			// Another request may have refreshed the cache while we waited for the lock.
 			[$meta, $weather] = $this->readCache($cacheFile);
 
-			if (!$this->needsRefresh($meta, $weather, $lat, $lon, $pauseTimeSeconds)) {
+			if (!$this->needsRefresh($meta, $weather, $fingerprint, $pauseTimeSeconds)) {
 				return $weather ?? false;
 			}
 
@@ -108,7 +112,7 @@ class PrettyweatherHelper
 			if ($weatherData) {
 				$this->saveJsonFile(
 					[
-						'meta'    => ['fetched_at' => time(), 'lat' => $lat, 'lon' => $lon],
+						'meta'    => ['fetched_at' => time(), 'fingerprint' => $fingerprint],
 						'weather' => $weatherData,
 					],
 					$cacheFile
@@ -117,10 +121,14 @@ class PrettyweatherHelper
 				return $weatherData;
 			}
 
-			// Record the failure for back-off, keeping the last good data.
-			$meta                 = $meta ?? [];
-			$meta['last_attempt'] = time();
-			$meta['failures']     = (int) ($meta['failures'] ?? 0) + 1;
+			// Record the failure for back-off, keeping the last good data. The
+			// failure count restarts when the configuration changed.
+			$meta             = $meta ?? [];
+			$previousFailures = ($meta['attempt_fingerprint'] ?? null) === $fingerprint ? (int) ($meta['failures'] ?? 0) : 0;
+
+			$meta['last_attempt']        = time();
+			$meta['attempt_fingerprint'] = $fingerprint;
+			$meta['failures']            = $previousFailures + 1;
 
 			$this->saveJsonFile(['meta' => $meta, 'weather' => $weather], $cacheFile);
 		} finally {
@@ -155,25 +163,25 @@ class PrettyweatherHelper
 	/**
 	 * Decide whether the cache must be refreshed.
 	 *
-	 * Freshness and coordinate checks use our own metadata, never provider
-	 * fields such as `dt`. After a failed fetch no new attempt is made until the
-	 * back-off window has passed: max(pause time, 5 min), doubling per
-	 * consecutive failure, capped at one hour.
+	 * Freshness and configuration checks use our own metadata, never provider
+	 * fields such as `dt`. After a failed fetch no new attempt is made for the
+	 * same configuration until the back-off window has passed: max(pause time,
+	 * 5 min), doubling per consecutive failure, capped at one hour. A changed
+	 * configuration is tried right away.
 	 *
-	 * @param  ?array     $meta             Cache metadata.
-	 * @param  ?array     $weather          Cached weather payload.
-	 * @param  float|null $lat              Configured latitude.
-	 * @param  float|null $lon              Configured longitude.
-	 * @param  int        $pauseTimeSeconds Pause time between API calls.
+	 * @param  ?array $meta             Cache metadata.
+	 * @param  ?array $weather          Cached weather payload.
+	 * @param  string $fingerprint      Fingerprint of the current configuration.
+	 * @param  int    $pauseTimeSeconds Pause time between API calls.
 	 * @return bool
 	 *
 	 * @since 1.2.0
 	 */
-	protected function needsRefresh(?array $meta, ?array $weather, ?float $lat, ?float $lon, int $pauseTimeSeconds): bool
+	protected function needsRefresh(?array $meta, ?array $weather, string $fingerprint, int $pauseTimeSeconds): bool
 	{
 		$failures = (int) ($meta['failures'] ?? 0);
 
-		if ($failures > 0) {
+		if ($failures > 0 && ($meta['attempt_fingerprint'] ?? null) === $fingerprint) {
 			$backOff = min(max($pauseTimeSeconds, 300) * 2 ** min($failures - 1, 6), 3600);
 
 			if (time() - (int) ($meta['last_attempt'] ?? 0) < $backOff) {
@@ -189,7 +197,7 @@ class PrettyweatherHelper
 			return true;
 		}
 
-		return $this->coordChanged($meta['lat'] ?? null, $lat) || $this->coordChanged($meta['lon'] ?? null, $lon);
+		return ($meta['fingerprint'] ?? null) !== $fingerprint;
 	}
 
 	/**
@@ -241,25 +249,6 @@ class PrettyweatherHelper
 		$value = (float) $value;
 
 		return abs($value) <= $limit ? $value : null;
-	}
-
-	/**
-	 * Compare a cached coordinate with the configured one.
-	 *
-	 * @param  mixed      $cached  Coordinate stored in the cache metadata.
-	 * @param  float|null $current Coordinate from the module params.
-	 * @return bool                True when they differ.
-	 *
-	 * @since 1.2.0
-	 */
-	protected function coordChanged($cached, ?float $current): bool
-	{
-		if ($cached === null || $current === null) {
-			return $cached !== $current;
-		}
-
-		// Use a tiny epsilon to avoid float jitter.
-		return abs((float) $cached - $current) > 1e-6;
 	}
 
 	/**
@@ -486,11 +475,6 @@ class PrettyweatherHelper
 			return false;
 		}
 
-		// Optional manual location name overrides the API-provided name.
-		if (!empty($params->locationname)) {
-			$data['name'] = (string) $params->locationname;
-		}
-
 		return $data;
 	}
 
@@ -606,10 +590,6 @@ class PrettyweatherHelper
 			'dt'    => time(),
 		];
 
-		if (!empty($params->locationname)) {
-			$weather['name'] = (string) $params->locationname;
-		}
-
 		return $weather;
 	}
 
@@ -695,10 +675,6 @@ class PrettyweatherHelper
 			'coord' => ['lat' => $lat, 'lon' => $lon],
 			'dt'    => isset($current['data'][0]['dt']) ? (int) $current['data'][0]['dt'] : time(),
 		];
-
-		if (!empty($params->locationname)) {
-			$weather['name'] = (string) $params->locationname;
-		}
 
 		return $weather;
 	}
@@ -827,6 +803,12 @@ class PrettyweatherHelper
 
 		$params = json_decode($module->params) ?: new \stdClass();
 		$blocks = $params->conditional_content ?? [];
+
+		// The optional location name overrides the provider's name. It is applied
+		// here, not at fetch time, so a change shows without refreshing the cache.
+		if (!empty($params->locationname)) {
+			$data['name'] = (string) $params->locationname;
+		}
 		$provider = isset($params->provider) ? strtolower((string) $params->provider) : '';
 
 		$out = [];
