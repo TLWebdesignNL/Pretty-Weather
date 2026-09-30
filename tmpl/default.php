@@ -18,20 +18,20 @@ use Joomla\CMS\Language\Text;
     <?php $hideMinMax = (strtolower((string) $params->get('provider')) === 'openweathermap'); ?>
     <code><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_HEADING'); ?><br>
         <ul>
-            <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_TEMP_LABEL'); ?> <?php echo $main['temp'] ?? ''; ?></li>
-            <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_FEELS_LIKE_LABEL'); ?> <?php echo $main['feels_like'] ?? ''; ?></li>
+            <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_TEMP_LABEL'); ?> <?php echo htmlspecialchars((string) ($main['temp'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></li>
+            <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_FEELS_LIKE_LABEL'); ?> <?php echo htmlspecialchars((string) ($main['feels_like'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></li>
             <?php if (!$hideMinMax) : ?>
-                <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_MIN_TEMP_LABEL'); ?> <?php echo $main['temp_min'] ?? ''; ?></li>
-                <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_MAX_TEMP_LABEL'); ?> <?php echo $main['temp_max'] ?? ''; ?></li>
+                <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_MIN_TEMP_LABEL'); ?> <?php echo htmlspecialchars((string) ($main['temp_min'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></li>
+                <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_MAX_TEMP_LABEL'); ?> <?php echo htmlspecialchars((string) ($main['temp_max'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></li>
             <?php endif; ?>
-            <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_NAME_LABEL'); ?> <?php echo $weatherData['name'] ?? ''; ?></li>
+            <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_NAME_LABEL'); ?> <?php echo htmlspecialchars((string) ($weatherData['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></li>
         </ul>
     </code>
 <?php endif; ?>
 
 <?php if ($display) : ?>
     <div class="prettyWeatherWrapper">
-        <div class="prettyWeather mod-<?php echo $module->id?>">
+        <div class="prettyWeather mod-<?php echo (int) $module->id; ?>">
 			<?php echo $display; ?>
         </div>
     </div>

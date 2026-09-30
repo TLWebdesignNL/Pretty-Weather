@@ -205,6 +205,7 @@
                         label="MOD_PRETTYWEATHER_FIELD_LOCATIONNAME_LABEL"
                         description="MOD_PRETTYWEATHER_FIELD_LOCATIONNAME_DESC"
                         default=""
+                        filter="string"
                 />
                 <field
                         name="pausetime"

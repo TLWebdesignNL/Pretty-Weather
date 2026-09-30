@@ -757,6 +757,13 @@ class PrettyweatherHelper
 			return $html;
 		}
 
+		// Values come from module params or third-party APIs and are inserted
+		// into HTML, so they must be escaped.
+		$map = array_map(
+			static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'),
+			$map
+		);
+
 		return strtr($html, $map);
 	}
 }
