@@ -9,7 +9,7 @@ Pretty Weather is a module for **Joomla 5.2 or newer** that displays weather-bas
 - Conditional content blocks driven by temperature rules (e.g. show a block only when `temp` < 5)
 - Configurable units: Standard (Kelvin), Metric (Celsius), Imperial (Fahrenheit)
 - Built-in caching with a configurable minimum time between API calls
-- Debug mode that displays the latest raw data and any API errors
+- Debug mode that displays the stored values and any API errors (visible to administrators only)
 - English and Dutch translations
 
 ## Providers
@@ -45,7 +45,7 @@ In the module settings:
 5. **Location name** *(optional)* — overrides/fills the `{name}` placeholder; needed to show a name with One Call API 4.0 or Open-Meteo.
 6. **Time between API calls** — minimum minutes before the data is refreshed (caching).
    Only one visitor request refreshes the data at a time; others are served the cached values. Each API call times out after 3 seconds, so a refresh adds at most about 3 s to that one page view (6 s for One Call API 4.0, which makes two calls). If a refresh fails, the last good data keeps being shown and no new attempt is made for the pause time (at least 5 minutes), doubling after each further failure up to one hour. Changing the provider, units or coordinates refreshes the data right away (the location name is applied without a refresh).
-7. **Debug** — show the latest raw values and API errors in the frontend while troubleshooting.
+7. **Debug** — show the stored values and API errors in the frontend while troubleshooting. Only users who can manage modules (or any visitor when Joomla debug mode is on) see this output; exception details go to the `mod_prettyweather.php` log file.
 
 ### Content & placeholders
 
