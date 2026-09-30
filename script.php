@@ -13,6 +13,7 @@
 
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Log\Log;
+use Joomla\Filesystem\Folder;
 
 /**
  * Script file of Prettyweather module
@@ -53,6 +54,16 @@ class mod_prettyweatherInstallerScript
      */
     function uninstall($parent)
     {
+        $this->removeLegacyCacheFiles();
+
+        // Cleanup is best effort: a leftover cache folder must not block uninstalling.
+        try {
+            if (is_dir(JPATH_SITE . '/cache/mod_prettyweather')) {
+                Folder::delete(JPATH_SITE . '/cache/mod_prettyweather');
+            }
+        } catch (\Throwable) {
+        }
+
         echo Text::_('MOD_PRETTYWEATHER_INSTALLERSCRIPT_UNINSTALL');
 
         return true;
@@ -67,6 +78,9 @@ class mod_prettyweatherInstallerScript
      */
     function update($parent)
     {
+        // Before 1.2.0 weather data was cached in the public media folder.
+        $this->removeLegacyCacheFiles();
+
         echo Text::_('MOD_PRETTYWEATHER_INSTALLERSCRIPT_UPDATE');
 
         return true;
@@ -114,5 +128,19 @@ class mod_prettyweatherInstallerScript
         echo Text::_('MOD_PRETTYWEATHER_INSTALLERSCRIPT_POSTFLIGHT');
 
         return true;
+    }
+
+    /**
+     * Remove weather data cached by versions before 1.2.0 in the media folder.
+     *
+     * @return  void
+     *
+     * @since   1.2.0
+     */
+    private function removeLegacyCacheFiles(): void
+    {
+        foreach (glob(JPATH_ROOT . '/media/mod_prettyweather/data-*.json') ?: [] as $file) {
+            @unlink($file);
+        }
     }
 }

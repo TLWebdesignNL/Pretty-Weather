@@ -11,7 +11,6 @@
 namespace TLWeb\Module\Prettyweather\Site\Helper;
 
 use Joomla\CMS\Factory;
-use Joomla\Filesystem\File;
 use Joomla\Filesystem\Folder;
 use Joomla\CMS\Uri\Uri;
 use Joomla\CMS\Http\HttpFactory;
@@ -68,7 +67,8 @@ class PrettyweatherHelper
 			return false;
 		}
 
-		$cacheFile = JPATH_ROOT . '/media/mod_prettyweather/data-' . $module->id . '.json';
+		// Runtime data lives in the site cache folder, never in the public media folder.
+		$cacheFile = JPATH_SITE . '/cache/mod_prettyweather/data-' . (int) $module->id . '.json';
 
 		$lat = $this->coordinate($params->latitude ?? null, 90.0);
 		$lon = $this->coordinate($params->longitude ?? null, 180.0);
@@ -352,6 +352,9 @@ class PrettyweatherHelper
 	/**
 	 * Encode and write data to a JSON file (ensures target directory exists).
 	 *
+	 * Writes to a temporary file and renames it into place, so concurrent
+	 * readers never see a partially written file.
+	 *
 	 * @param  array  $data         Data to encode.
 	 * @param  string $jsonFilePath Absolute file path.
 	 * @return bool                 True on success, false on failure.
@@ -367,16 +370,31 @@ class PrettyweatherHelper
 
 		$jsonContents = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-		// Save the JSON data to the file
-		return File::write($jsonFilePath, $jsonContents);
+		if ($jsonContents === false) {
+			return false;
+		}
+
+		$tmpFile = $jsonFilePath . '.' . bin2hex(random_bytes(4)) . '.tmp';
+
+		if (file_put_contents($tmpFile, $jsonContents) === false) {
+			return false;
+		}
+
+		if (!rename($tmpFile, $jsonFilePath)) {
+			@unlink($tmpFile);
+
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
 	 * Fetch current weather, routing to the configured provider.
 	 *
-	 * Both providers normalise their response into the same canonical structure
-	 * (the OpenWeatherMap shape: main.temp/feels_like/temp_min/temp_max, name,
-	 * coord.lat/lon, dt) so all downstream code remains provider-agnostic.
+	 * All providers are reduced to the same canonical structure (main.temp,
+	 * main.feels_like, main.temp_min, main.temp_max, name), which is also all
+	 * that is cached, so downstream code remains provider-agnostic.
 	 *
 	 * @param  string    $provider Provider key ("openweathermap" or "openmeteo").
 	 * @param  string    $apiKey   API key (only used by OpenWeatherMap).
@@ -390,21 +408,43 @@ class PrettyweatherHelper
 		try {
 			$provider = strtolower((string) $provider);
 
-			if ($provider === 'openmeteo') {
-				return $this->getOpenMeteoData($params);
-			}
+			$weather = match ($provider) {
+				'openmeteo'             => $this->getOpenMeteoData($params),
+				'openweathermaponecall' => $this->getOpenWeatherMapOneCallData($apiKey, $params),
+				default                 => $this->getOpenWeatherMapData($apiKey, $params),
+			};
 
-			if ($provider === 'openweathermaponecall') {
-				return $this->getOpenWeatherMapOneCallData($apiKey, $params);
-			}
-
-			return $this->getOpenWeatherMapData($apiKey, $params);
+			return is_array($weather) ? $this->normaliseWeather($weather) : false;
 		} catch (\Throwable $e) {
 			$this->logException($e, $apiKey !== null ? (string) $apiKey : null);
 			$this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_EXCEPTION', 'error');
 
 			return false;
 		}
+	}
+
+	/**
+	 * Reduce a provider response to the canonical fields the module uses.
+	 *
+	 * @param  array $weather Provider data in the OpenWeatherMap shape.
+	 * @return array          ['main' => [temp, feels_like, temp_min, temp_max], 'name' => string]
+	 *
+	 * @since 1.2.0
+	 */
+	protected function normaliseWeather(array $weather): array
+	{
+		$main = [];
+
+		foreach (['temp', 'feels_like', 'temp_min', 'temp_max'] as $key) {
+			if (isset($weather['main'][$key]) && is_numeric($weather['main'][$key])) {
+				$main[$key] = (float) $weather['main'][$key];
+			}
+		}
+
+		return [
+			'main' => $main,
+			'name' => isset($weather['name']) && is_scalar($weather['name']) ? (string) $weather['name'] : '',
+		];
 	}
 
 	/**
@@ -582,12 +622,8 @@ class PrettyweatherHelper
 				'temp_max'   => $tempMax,
 			],
 			// Open-Meteo's forecast endpoint returns no location name; the optional
-			// manual name (below) is the only source for the {name} placeholder.
+			// manual name (applied at render time) is the only source for {name}.
 			'name'  => '',
-			// Store the REQUESTED coordinates, not Open-Meteo's grid-snapped values,
-			// so getWeather()'s coord-change check (epsilon 1e-6) does not thrash the cache.
-			'coord' => ['lat' => $lat, 'lon' => $lon],
-			'dt'    => time(),
 		];
 
 		return $weather;
@@ -671,9 +707,6 @@ class PrettyweatherHelper
 				'temp_max'   => (float) $dayRecord['temp']['max'],
 			],
 			'name'  => '',
-			// Store the REQUESTED coordinates so the coord-change cache check is stable.
-			'coord' => ['lat' => $lat, 'lon' => $lon],
-			'dt'    => isset($current['data'][0]['dt']) ? (int) $current['data'][0]['dt'] : time(),
 		];
 
 		return $weather;
