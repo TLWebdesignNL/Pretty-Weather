@@ -14,19 +14,30 @@ use Joomla\CMS\Language\Text;
 
 ?>
 <?php if ($debug) : ?>
-    <?php $main = $weatherData['main'] ?? []; ?>
-    <?php $hideMinMax = (strtolower((string) $params->get('provider')) === 'openweathermap'); ?>
-    <code><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_HEADING'); ?><br>
-        <ul>
-            <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_TEMP_LABEL'); ?> <?php echo htmlspecialchars((string) ($main['temp'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></li>
-            <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_FEELS_LIKE_LABEL'); ?> <?php echo htmlspecialchars((string) ($main['feels_like'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></li>
-            <?php if (!$hideMinMax) : ?>
-                <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_MIN_TEMP_LABEL'); ?> <?php echo htmlspecialchars((string) ($main['temp_min'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></li>
-                <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_MAX_TEMP_LABEL'); ?> <?php echo htmlspecialchars((string) ($main['temp_max'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></li>
-            <?php endif; ?>
-            <li><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_NAME_LABEL'); ?> <?php echo htmlspecialchars((string) ($weatherData['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></li>
-        </ul>
-    </code>
+    <?php
+    $main = $weatherData['main'] ?? [];
+    $rows = [
+        'MOD_PRETTYWEATHER_DEBUG_TEMP_LABEL'       => $main['temp'] ?? '',
+        'MOD_PRETTYWEATHER_DEBUG_FEELS_LIKE_LABEL' => $main['feels_like'] ?? '',
+    ];
+
+    // OpenWeatherMap 2.5 has no meaningful daily min/max.
+    if (strtolower((string) $params->get('provider')) !== 'openweathermap') {
+        $rows['MOD_PRETTYWEATHER_DEBUG_MIN_TEMP_LABEL'] = $main['temp_min'] ?? '';
+        $rows['MOD_PRETTYWEATHER_DEBUG_MAX_TEMP_LABEL'] = $main['temp_max'] ?? '';
+    }
+
+    $rows['MOD_PRETTYWEATHER_DEBUG_NAME_LABEL'] = $weatherData['name'] ?? '';
+    ?>
+    <div class="alert alert-info">
+        <p class="fw-bold"><?php echo Text::_('MOD_PRETTYWEATHER_DEBUG_HEADING'); ?></p>
+        <dl class="row mb-0">
+            <?php foreach ($rows as $label => $value) : ?>
+                <dt class="col-sm-4"><?php echo Text::_($label); ?></dt>
+                <dd class="col-sm-8"><code><?php echo htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); ?></code></dd>
+            <?php endforeach; ?>
+        </dl>
+    </div>
 <?php endif; ?>
 
 <?php if ($display) : ?>
