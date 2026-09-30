@@ -47,4 +47,32 @@
             <item>Fixed a backend warning in Joomla 5.4 caused by the API key field's conditional display rule.</item>
         </fix>
     </changelog>
+    <changelog>
+        <element>mod_prettyweather</element>
+        <type>module</type>
+        <version>1.2.0</version>
+        <security>
+            <item>Location name and provider values inserted into the content are now HTML-escaped, so they can no longer inject scripts on the frontend.</item>
+            <item>Debug output is only shown to users who can manage modules (or when Joomla debug mode is on). Error details are written to the mod_prettyweather.php log with the API key masked, instead of being shown on the page.</item>
+            <item>The API key field is now a password field.</item>
+        </security>
+        <fix>
+            <item>A missing provider, API key or coordinates no longer breaks the whole page; the module simply stays empty.</item>
+            <item>OpenWeatherMap no longer calls the API on every page view; the time between API calls is respected for every provider.</item>
+            <item>After a failed request the module keeps showing the last known weather and waits before retrying (at least 5 minutes, up to one hour). Only one request refreshes the data at a time, and requests time out after 3 seconds.</item>
+            <item>Changing the provider, units or coordinates refreshes the weather straight away; a changed location name shows immediately.</item>
+            <item>Latitude, longitude and the time between API calls are validated; empty coordinates no longer fetch the weather for 0,0.</item>
+            <item>Temperatures are rounded instead of truncated (12.6 shows as 13), and conditional rules compare the same rounded value that is displayed.</item>
+            <item>Updates are no longer offered to unsupported Joomla versions (only 5.2&#8211;5.4 and 6).</item>
+        </fix>
+        <change>
+            <item>Weather data is now cached in the site's cache folder instead of the public media folder, and only the values the module uses are stored. Old cache files are removed on update; the cache is removed on uninstall.</item>
+            <item>Uses the Joomla framework HTTP client (ready for Joomla 7) and a modern installer script. The installable package now contains only the module files.</item>
+            <item>Debug output is displayed as a Bootstrap alert, and the backend notes are more accessible.</item>
+        </change>
+        <note>
+            <item>Coordinates must use a dot as decimal separator (50.997873). A value saved with a comma, such as 50,99, is now treated as not set; re-enter it in the module settings.</item>
+            <item>Conditional rules now compare the rounded temperature. A rule on the boundary may give a different result than before (for example, 12.6 now counts as 13).</item>
+        </note>
+    </changelog>
 </changelogs>
