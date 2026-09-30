@@ -883,6 +883,22 @@ class PrettyweatherHelper
 	}
 
 	/**
+	 * Round a temperature to the whole number shown to visitors.
+	 *
+	 * Used for both placeholders and rules, so a rule always sees the value
+	 * the visitor sees (12.6 is shown as 13, -0.7 as -1).
+	 *
+	 * @param  float $value Temperature.
+	 * @return int
+	 *
+	 * @since 1.2.0
+	 */
+	protected function normalise(float $value): int
+	{
+		return (int) round($value);
+	}
+
+	/**
 	 * Evaluate a list of rules using AND logic.
 	 *
 	 * Supported types: temp, feels_like, temp_min, temp_max.
@@ -911,7 +927,8 @@ class PrettyweatherHelper
 				return false;
 			}
 
-			$currentTypeValue = isset($main[$type]) ? (float) $main[$type] : null;
+			// Compare the rounded value, i.e. the number the visitor sees.
+			$currentTypeValue = isset($main[$type]) ? $this->normalise((float) $main[$type]) : null;
 			if ($currentTypeValue === null) {
 				return false;
 			}
@@ -964,10 +981,10 @@ class PrettyweatherHelper
 		$hideMinMax = ($provider === 'openweathermap');
 
 		$map = [
-			'{temp}'        => isset($data['main']['temp']) ? (int) $data['main']['temp'] : '',
-			'{feels_like}'  => isset($data['main']['feels_like']) ? (int) $data['main']['feels_like'] : '',
-			'{temp_min}'    => ($hideMinMax || !isset($data['main']['temp_min'])) ? '' : (int) $data['main']['temp_min'],
-			'{temp_max}'    => ($hideMinMax || !isset($data['main']['temp_max'])) ? '' : (int) $data['main']['temp_max'],
+			'{temp}'        => isset($data['main']['temp']) ? $this->normalise((float) $data['main']['temp']) : '',
+			'{feels_like}'  => isset($data['main']['feels_like']) ? $this->normalise((float) $data['main']['feels_like']) : '',
+			'{temp_min}'    => ($hideMinMax || !isset($data['main']['temp_min'])) ? '' : $this->normalise((float) $data['main']['temp_min']),
+			'{temp_max}'    => ($hideMinMax || !isset($data['main']['temp_max'])) ? '' : $this->normalise((float) $data['main']['temp_max']),
 			'{name}'        => isset($data['name']) ? (string) $data['name'] : '',
 		];
 
