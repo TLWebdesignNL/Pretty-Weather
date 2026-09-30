@@ -189,14 +189,24 @@
                 </field>
                 <field
                         name="latitude"
-                        type="text"
+                        type="number"
+                        min="-90"
+                        max="90"
+                        step="any"
+                        filter="float"
+                        validate="number"
                         label="MOD_PRETTYWEATHER_FIELD_LAT_LABEL"
                         description="MOD_PRETTYWEATHER_FIELD_LAT_DESC"
                         hint="MOD_PRETTYWEATHER_FIELD_LAT_HINT"
                 />
                 <field
                         name="longitude"
-                        type="text"
+                        type="number"
+                        min="-180"
+                        max="180"
+                        step="any"
+                        filter="float"
+                        validate="number"
                         label="MOD_PRETTYWEATHER_FIELD_LON_LABEL"
                         description="MOD_PRETTYWEATHER_FIELD_LON_DESC"
                         hint="MOD_PRETTYWEATHER_FIELD_LON_HINT"
@@ -213,6 +223,9 @@
                         name="pausetime"
                         type="number"
                         default="10"
+                        min="1"
+                        filter="integer"
+                        validate="number"
                         label="MOD_PRETTYWEATHER_FIELD_PAUSETIME_LABEL"
                         description="MOD_PRETTYWEATHER_FIELD_PAUSETIME_DESC"
                 />

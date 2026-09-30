@@ -69,9 +69,18 @@ class PrettyweatherHelper
 
 		$cacheFile = JPATH_ROOT . '/media/mod_prettyweather/data-' . $module->id . '.json';
 
-		$pauseTimeSeconds = (!empty($params->pausetime) ? (int) $params->pausetime : 10) * 60;
-		$lat = isset($params->latitude) && $params->latitude !== '' ? (float) $params->latitude : null;
-		$lon = isset($params->longitude) && $params->longitude !== '' ? (float) $params->longitude : null;
+		$lat = $this->coordinate($params->latitude ?? null, 90.0);
+		$lon = $this->coordinate($params->longitude ?? null, 180.0);
+
+		// Empty or invalid coordinates mean "not configured", never 0,0.
+		if ($lat === null || $lon === null) {
+			$this->debugMessage($params, 'MOD_PRETTYWEATHER_ERROR_NO_COORDINATES');
+
+			return false;
+		}
+
+		$pauseTime        = is_numeric($params->pausetime ?? null) ? (int) $params->pausetime : 10;
+		$pauseTimeSeconds = max(1, $pauseTime) * 60;
 
 		[$meta, $weather] = $this->readCache($cacheFile);
 
@@ -212,6 +221,26 @@ class PrettyweatherHelper
 		}
 
 		return $handle;
+	}
+
+	/**
+	 * Parse a configured coordinate.
+	 *
+	 * @param  mixed $value Raw param value.
+	 * @param  float $limit Absolute maximum (90 for latitude, 180 for longitude).
+	 * @return float|null  The coordinate, or null when empty, non-numeric or out of range.
+	 *
+	 * @since 1.2.0
+	 */
+	protected function coordinate($value, float $limit): ?float
+	{
+		if (!is_numeric($value)) {
+			return null;
+		}
+
+		$value = (float) $value;
+
+		return abs($value) <= $limit ? $value : null;
 	}
 
 	/**
@@ -401,8 +430,8 @@ class PrettyweatherHelper
 	protected function getOpenWeatherMapData($apiKey, $params): array|false
 	{
 		// Extract required params
-		$lat   = isset($params->latitude) ? (float) $params->latitude : null;
-		$lon   = isset($params->longitude) ? (float) $params->longitude : null;
+		$lat   = $this->coordinate($params->latitude ?? null, 90.0);
+		$lon   = $this->coordinate($params->longitude ?? null, 180.0);
 		$units = !empty($params->units) ? (string) $params->units : 'metric';
 
 		if ($lat === null || $lon === null || empty($apiKey)) {
@@ -481,8 +510,8 @@ class PrettyweatherHelper
 	 */
 	protected function getOpenMeteoData($params): array|false
 	{
-		$lat = isset($params->latitude) ? (float) $params->latitude : null;
-		$lon = isset($params->longitude) ? (float) $params->longitude : null;
+		$lat = $this->coordinate($params->latitude ?? null, 90.0);
+		$lon = $this->coordinate($params->longitude ?? null, 180.0);
 
 		if ($lat === null || $lon === null) {
 			return false;
@@ -604,8 +633,8 @@ class PrettyweatherHelper
 	 */
 	protected function getOpenWeatherMapOneCallData($apiKey, $params): array|false
 	{
-		$lat   = isset($params->latitude) ? (float) $params->latitude : null;
-		$lon   = isset($params->longitude) ? (float) $params->longitude : null;
+		$lat   = $this->coordinate($params->latitude ?? null, 90.0);
+		$lon   = $this->coordinate($params->longitude ?? null, 180.0);
 		$units = !empty($params->units) ? (string) $params->units : 'metric';
 
 		if ($lat === null || $lon === null || empty($apiKey)) {
