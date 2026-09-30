@@ -94,9 +94,9 @@ jobs:
           # Update sha256
           new_block = re.sub(r'<sha256>[a-f0-9]+</sha256>', f'<sha256>{sha256}</sha256>', new_block)
 
-          # Detect indentation of the last block and match it
-          indent = re.match(r'(\s*)', last).group(1)
-          new_block = indent + new_block.lstrip()
+          # Indent like the existing blocks (the regex match starts at
+          # <update>, so the indentation cannot be read from it)
+          new_block = "    " + new_block.lstrip()
 
           content = content.replace('</updates>', new_block + '\n</updates>')
           with open("updates.xml", "w") as f:

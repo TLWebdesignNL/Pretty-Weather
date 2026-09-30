@@ -59,10 +59,10 @@
         <maintainer>TLWebdesign</maintainer>
         <maintainerurl>https://www.tlwebdesign.nl/</maintainerurl>
         <section>Updates</section>
-        <targetplatform name="joomla" version="5\.(2|3|4)|6"/>
+        <targetplatform name="joomla" version="(5\.[234]|6)\."/>
         <client>site</client>
     </update>
-<update>
+    <update>
         <name>Pretty Weather 1.1.0</name>
         <description/>
         <element>mod_prettyweather</element>
@@ -80,10 +80,10 @@
         <maintainer>TLWebdesign</maintainer>
         <maintainerurl>https://www.tlwebdesign.nl/</maintainerurl>
         <section>Updates</section>
-        <targetplatform name="joomla" version="5\.(2|3|4)|6"/>
+        <targetplatform name="joomla" version="(5\.[234]|6)\."/>
         <client>site</client>
     </update>
-<update>
+    <update>
         <name>Pretty Weather 1.1.1</name>
         <description/>
         <element>mod_prettyweather</element>
@@ -101,7 +101,7 @@
         <maintainer>TLWebdesign</maintainer>
         <maintainerurl>https://www.tlwebdesign.nl/</maintainerurl>
         <section>Updates</section>
-        <targetplatform name="joomla" version="5\.(2|3|4)|6"/>
+        <targetplatform name="joomla" version="(5\.[234]|6)\."/>
         <client>site</client>
     </update>
 </updates>
