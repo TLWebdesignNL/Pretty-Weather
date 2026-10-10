@@ -104,4 +104,25 @@
         <targetplatform name="joomla" version="(5\.[234]|6)\."/>
         <client>site</client>
     </update>
+    <update>
+        <name>Pretty Weather 1.2.0</name>
+        <description/>
+        <element>mod_prettyweather</element>
+        <type>module</type>
+        <version>1.2.0</version>
+        <downloads>
+            <downloadurl type="full" format="zip">
+                https://github.com/TLWebdesignNL/Pretty-Weather/releases/download/V1.2.0/mod_prettyweather-1.2.0.zip
+            </downloadurl>
+        </downloads>
+        <tags>
+            <tag>stable</tag>
+        </tags>
+        <sha256>f2dd1cc0ad5ee1863b9659076c54fec33a3c3634541759f0c8dfe75384f99633</sha256>
+        <maintainer>TLWebdesign</maintainer>
+        <maintainerurl>https://www.tlwebdesign.nl/</maintainerurl>
+        <section>Updates</section>
+        <targetplatform name="joomla" version="(5\.[234]|6)\."/>
+        <client>site</client>
+    </update>
 </updates>
